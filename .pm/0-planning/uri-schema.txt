@@ -1,0 +1,123 @@
+🛰️ Universal URI Scheme for MineCollect
+
+Each source of data—whether web, app, or local—should resolve to a consistent and parseable URI format. The scheme should support the following goals:
+	•	Uniformity across platforms and types
+	•	Extensibility for custom or exotic sources
+	•	Granularity (e.g., down to highlight or timestamp)
+	•	Resolvability (for re-fetch or verification)
+	•	Indexing in the database via a source_uri field
+
+⸻
+
+🔤 URI Grammar
+
+[SCHEME]://[AUTHORITY]/[PATH]?[QUERY]#[FRAGMENT]
+
+All URIs must be unique per content unit. Here’s the breakdown of key schemes:
+
+⸻
+
+🔒 Local Device Schemes
+
+Scheme	Example	Purpose
+device	device://MacBook-Pro/Documents/Notes/2025-01-01.md	Files on specific machines
+screenshot	screenshot://iPhone14Pro/2025-06-08_11-23-48.png	Mobile or desktop screenshots
+zotero	zotero://collection/AI-Papers/2023-paper-title.pdf	Zotero file reference
+clip	clip://macbook/session/clipboard-uuid	Clipboard captures
+ocr	ocr://macbook/scan-uuid/line-34	OCR-derived source lines
+
+
+⸻
+
+🌐 Web Schemes
+
+Scheme	Example	Purpose
+https	https://twitter.com/user/status/1234567890	Direct canonical URL
+webcal	webcal://calendar.google.com/user/calendar.ics	Calendar feeds
+rss	rss://substack.com/feed/ai-news	RSS subscriptions
+mid	mid://gmail/2025-06-08T10:00:00Z-threadID123	Email messages
+chat	chat://chatgpt/session/abc123/turn-12	Chat logs with bots
+
+
+⸻
+
+📱 App Schemes (Installed Apps or Mobile APIs)
+
+Scheme	Example	Purpose
+app	app://notion/Projects/AI-Roadmap	Notes or items inside apps
+wechat	wechat://collections/bookmark-uuid	WeChat items
+kindle	kindle://book/ASIN/highlight-uuid	Kindle highlight
+spotify	spotify://episode/abc123	Podcast/music reference
+youtube	youtube://watch?v=xyz123&t=90	Video + timestamp
+bilibili	bilibili://collection/playlist-id/video-id	Localized source ref
+
+
+⸻
+
+📦 MineCollect Internal URIs
+
+Scheme	Example	Purpose
+mine	mine://snapshots/twitter/2025-06-08-item1234	Internal URI for ingested item
+hash	hash://sha256/abcdef...	Canonical hash-based fallback ref
+job	job://importer/reddit/2025-06-08-batch1	Importer job ref
+db	db://items/item-uuid	DB primary key (used internally)
+
+
+⸻
+
+✳️ Query & Fragment Extensions
+
+Use the query/fragment section to express:
+	•	Highlight ranges: ?hl=par12-13
+	•	Timestamps: #t=01:23
+	•	Section headings: #heading=Introduction
+	•	Tags or anchors: ?tag=ai&tag=philosophy
+
+⸻
+
+🔗 Example Applications
+
+1. A YouTube highlight:
+
+youtube://watch?v=abc123&t=164
+
+Linked with:
+	•	Ingest timestamp
+	•	Title and transcript fragment
+	•	Screenshot from frame
+
+2. Kindle highlight:
+
+kindle://book/B08XYZ/highlight-34
+
+With mapping to:
+	•	Readings/Books/Title
+	•	mine://snapshots/kindle/highlight-uuid
+
+3. Reddit saved comment:
+
+https://reddit.com/r/AskHistorians/comments/abc123/comment/xyz456
+
+And internal mirror:
+
+mine://snapshots/reddit/2025-06-08-xyz456
+
+
+⸻
+
+📘 Database Integration
+
+In Items table:
+
+source_uri: string // stores any of the above
+canonical_url: string | null // if available (https)
+hash: string // sha256 of normalized content
+
+
+⸻
+
+🧠 Advantages
+	•	Traceability: Always link back to origin (for re-verification or re-import)
+	•	Deduplication: Use hash + URI to prevent redundancies
+	•	Re-import Automation: Triggers based on URI patterns (e.g., all kindle:// items weekly)
+	•	Cross-linking: Easy semantic backlinks via URI mapping

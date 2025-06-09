@@ -4,7 +4,7 @@ Goal: Set up the backend environment, implement data model, and prepare for loca
 
 1.1 Project Bootstrap
 	•	Initialize a monorepo (e.g. with Turborepo).
-	•	Set up backend/, desktop/, and mobile/ packages.
+	•	Set up db/, api/, and ingestion/ packages.
 	•	Use PostgreSQL with pgvector and Drizzle ORM.
 
 1.2 Implement Database Schema

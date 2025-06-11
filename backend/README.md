@@ -1,7 +1,5 @@
 # MineCollect Backend
 
-AI-powered personal knowledge collector backend built with FastAPI and Haystack.
-
 ## Features
 
 - **FastAPI** - Modern, fast web framework for APIs
@@ -43,22 +41,6 @@ AI-powered personal knowledge collector backend built with FastAPI and Haystack.
    ```bash
    uv run minecollect-migrate init
    ```
-
-### Migrating from Poetry
-
-If you have an existing Poetry project:
-
-1. Remove Poetry files:
-   ```bash
-   rm poetry.lock pyproject.toml  # backup first if needed
-   ```
-
-2. Install UV and sync:
-   ```bash
-   uv sync
-   ```
-
-3. All your scripts and dependencies remain the same!
 
 ## Usage
 
@@ -179,18 +161,6 @@ uv venv
 uv sync --no-dev
 ```
 
-## Project Structure
-
-```
-backend/
-├── pyproject.toml          # UV/Python packaging configuration
-├── README.md              # This file
-├── __init__.py            # Package initialization
-├── main.py                # FastAPI application
-└── tests/                 # Test files
-    └── __init__.py
-```
-
 ## API Endpoints
 
 ### Core Endpoints
@@ -212,7 +182,3 @@ backend/
 ### Search API
 
 - `GET /api/search` - Hybrid semantic search
-
-## License
-
-[Your License Here] 

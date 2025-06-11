@@ -43,6 +43,8 @@ dependencies = [
     "ollama-haystack>=3.0.1",
     "poppler-utils>=0.1.0",
     "pandoc>=2.4",
+    "pytesseract>=0.3.13",
+    "unstructured-fileconverter-haystack>=0.4.3",
 ]
 
 [project.optional-dependencies]

@@ -1,193 +1,146 @@
-🧱 Phase 1: Infrastructure & Schema
+# MineCollect: Phased Development Plan
 
-Goal: Set up the Python backend environment, implement data model, and prepare for AI-powered content processing.
+This document outlines the implementation roadmap for MineCollect, breaking down the project into discrete phases. It aligns with the architecture defined in the `tech-spec.md` and incorporates ideas from across the project documentation.
 
-1.1 Project Bootstrap
-	•	Initialize a monorepo with Python backend + TypeScript frontends.
-	•	Set up packages: backend/, apps/desktop, apps/mobile.
-	•	Use PostgreSQL with pgvector and SQLAlchemy ORM.
-	•	Configure Docker Compose for development environment.
+---
 
-1.2 Database Schema (PostgreSQL + pgvector)
-	•	Create SQLAlchemy models with pgvector support.
-	•	Generate Alembic migrations for schema deployment.
-	•	Implement Items, Files, Sources, ImportJobs, Logs, Errors, Revisions tables.
-	•	Add vector similarity indexes for semantic search.
+### 🚀 Phase 0: Foundation & Developer Experience (Weeks 1-4)
+**Goal:** Establish the core infrastructure, database schema, and development environment. This phase prioritizes a solid foundation for all subsequent work.
 
-1.3 FastAPI Backend Setup
-	•	Initialize FastAPI application with async support.
-	•	Configure CORS for frontend communication.
-	•	Set up background task system with Celery + Redis.
-	•	Implement basic health check and API structure.
+- **1.1 Project Scaffolding:**
+  - Initialize a monorepo structure for `backend` and `frontend` packages.
+  - Set up Docker Compose to orchestrate PostgreSQL, Redis, and Meilisearch services.
+  - Implement basic logging, tracing (OpenTelemetry), and configuration management.
 
-1.4 Content Processing Foundation
-	•	Integrate Unstructured.io for document partitioning and OCR.
-	•	Set up Haystack pipelines for embedding generation.
-	•	Configure OpenAI client for LLM-based tagging.
-	•	Implement Whisper for audio transcription.
+- **1.2 Database & Schema:**
+  - Configure PostgreSQL with `pgvector` and `ltree` extensions.
+  - Define core SQLAlchemy models: `Items`, `Chunks`, `Sources`, `Tags`.
+  - Set up Alembic for database migrations.
 
-⸻
+- **1.3 Backend API:**
+  - Initialize a FastAPI application with async support.
+  - Implement a background task runner (e.g., Celery with Redis).
+  - Create initial health check and placeholder API endpoints.
 
-📲 Phase 2: AI-Powered Ingestion System
+- **1.4 Security:**
+  - Set up secret management using Hashicorp Vault or a similar tool for API keys and credentials.
 
-Goal: Implement intelligent content processing with local folder watching and AI enhancement.
+---
 
-2.1 Local File Watcher (Python)
-	•	Watch folders: ~/Screenshots, ~/Downloads, ~/Documents/Zotero.
-	•	Use watchdog library for cross-platform file monitoring.
-	•	Trigger async ingestion pipeline per new file.
+### 📥 Phase 1: Core Ingestion & Processing (Weeks 5-8)
+**Goal:** Build the primary data pipeline, enabling content ingestion from local files and basic web sources.
 
-2.2 Smart Ingestion Pipeline
-	•	Generate SHA-256 content hash for deduplication.
-	•	Process with Unstructured (hi-res OCR, document partitioning).
-	•	Extract metadata (EXIF, file properties, source context).
-	•	Generate embeddings via Haystack + OpenAI.
-	•	LLM-based auto-tagging and keyword extraction.
-	•	Store in PostgreSQL with vector indexing.
+- **2.1 Local File Ingestion:**
+  - Implement a local folder watcher using `watchdog` to monitor user-specified directories (e.g., `~/Screenshots`, `~/Downloads`).
+  - Trigger ingestion jobs for new or modified files.
 
-2.3 Content Processing Workers
-	•	Async background jobs for CPU-intensive tasks.
-	•	Batch processing for multiple files.
-	•	Progress tracking and error handling.
-	•	Retry mechanisms for failed processing.
+- **2.2 Content Processing Pipeline:**
+  - Integrate `unstructured.io` for robust document partitioning (PDF, HTML, etc.) and OCR.
+  - Generate SHA-256 content hashes for deduplication.
+  - Extract file metadata (EXIF, timestamps).
+  - Persist processed content and metadata to PostgreSQL.
 
-⸻
+- **2.3 First Connectors:**
+  - Build initial connectors for high-value sources like Readwise (highlights) and basic web page scraping.
 
-🔌 Phase 3: FastAPI Backend & Search
+---
 
-Goal: Build high-performance API with hybrid semantic + full-text search.
+### 🧠 Phase 2: Intelligent Retrieval & Search (Weeks 9-12)
+**Goal:** Enrich the ingested data with AI-powered features and build a powerful hybrid search API.
 
-3.1 Core API Endpoints
-	•	POST /api/items – Create/import new content
-	•	GET /api/items – List with filtering (tags, path, date)
-	•	GET /api/items/{id} – Retrieve item with full metadata
-	•	POST /api/import – Trigger manual import jobs
-	•	GET /api/search – Hybrid semantic + full-text search
-	•	WebSocket endpoints for real-time updates
+- **3.1 AI Enrichment:**
+  - Integrate an embedding pipeline using `sentence-transformers` or OpenAI's API.
+  - Implement LLM-based auto-tagging and summarization for content chunks.
+  - Store embeddings in `pgvector` and tags/summaries in PostgreSQL.
 
-3.2 Advanced Search Implementation
-	•	pgvector cosine similarity for semantic search.
-	•	PostgreSQL full-text search for exact matches.
-	•	Hybrid scoring with configurable weights.
-	•	Search result ranking and relevance scoring.
+- **3.2 Hybrid Search API:**
+  - Set up Meilisearch and create an indexing pipeline to mirror PostgreSQL data.
+  - Implement a search endpoint in FastAPI that combines:
+    - **Keyword Search:** Full-text search from Meilisearch.
+    - **Semantic Search:** Cosine similarity from `pgvector`.
+  - Develop a scoring mechanism to merge and rank results from both engines.
 
-3.3 Secret Management & Configuration
-	•	Secure vault for API keys (OpenAI, OAuth tokens).
-	•	Environment-based configuration.
-	•	Encrypted storage for sensitive credentials.
+- **3.3 Core API Endpoints:**
+  - Build out full CRUD (Create, Read, Update, Delete) endpoints for items and tags.
+  - Implement robust filtering and pagination.
 
-⸻
+---
 
-🎨 Phase 4: Modern Frontend (React + Vite + shadcn/ui)
+### 🖥️ Phase 3: Desktop UI & User Experience (Weeks 13-16)
+**Goal:** Create a functional and beautiful desktop application for interacting with the knowledge base.
 
-Goal: Build elegant desktop interface for browsing and managing knowledge.
+- **4.1 Frontend Foundation:**
+  - Set up a Tauri application with React, Vite, and TypeScript.
+  - Integrate Tailwind CSS and `shadcn/ui` for the component library.
+  - Use TanStack Query for efficient server-state management.
 
-4.1 Frontend Foundation
-	•	React + Vite + TypeScript setup.
-	•	Tailwind CSS + shadcn/ui component library.
-	•	TanStack Query for server state management.
-	•	React Router for navigation.
+- **4.2 Core UI Components:**
+  - **Command Palette (⌘K):** A fast, keyboard-driven interface for search.
+  - **Hierarchical View:** A tree-based navigator for browsing content by its `ltree` path.
+  - **Detail View:** A component to render item content, metadata, and tags.
+  - **Tag Management:** An interface for creating, editing, and applying tags.
 
-4.2 Core UI Components
-	•	SearchCommand with semantic search (⌘K interface).
-	•	ItemTree for hierarchical browsing (/Mine, /Readings, etc.).
-	•	ItemDetail with markdown rendering and metadata.
-	•	TagManager for content organization.
+- **4.3 API Integration:**
+  - Connect all UI components to the FastAPI backend.
+  - Implement WebSocket support for real-time UI updates.
 
-4.3 Advanced Features
-	•	Real-time updates via WebSocket.
-	•	Drag-and-drop file import.
-	•	Keyboard shortcuts and power-user features.
-	•	Dark/light theme support.
+---
 
-⸻
+### 📱 Phase 4: Mobile & Sync (Weeks 17-20)
+**Goal:** Extend access to mobile devices and implement the first version of P2P synchronization.
 
-🤳 Phase 5: Mobile App (React Native + NativeWind)
+- **5.1 Mobile Application:**
+  - Set up a React Native project using NativeWind for styling.
+  - Implement quick-capture features: text notes, photo/document scanning, and share sheet integration.
+  - Design a mobile-first interface for search and review.
 
-Goal: Quick capture and mobile access to knowledge base.
+- **5.2 P2P Synchronization:**
+  - Design the architecture for P2P sync using WebRTC or `libp2p`.
+  - Implement device discovery on local networks (mDNS).
+  - Develop an initial delta-sync protocol with a last-write-wins conflict resolution strategy.
 
-5.1 Mobile Foundation
-	•	React Native + NativeWind (Tailwind for RN).
-	•	React Navigation for screen management.
-	•	Native modules for device integration.
+---
 
-5.2 Capture Features
-	•	Quick text/voice note capture.
-	•	Share target integration (iOS/Android).
-	•	Camera integration for document scanning.
-	•	Voice-to-text with Whisper transcription.
+### 🌐 Phase 5: Advanced Connectors & Scalability (Weeks 21-24)
+**Goal:** Expand data sources to complex web platforms and ensure the system is robust and scalable.
 
-5.3 Mobile-Specific Features
-	•	Offline-first with sync queue.
-	•	Auto-discovery of desktop instances (mDNS).
-	•	Background sync when connected to WiFi.
+- **6.1 Advanced Web Connectors:**
+  - Build browser automation-based importers using Playwright for sources like:
+    - YouTube (history, liked videos)
+    - Twitter/X (bookmarks, likes)
+    - Reddit (saved posts)
+  - Implement respectful scraping practices with appropriate rate limiting.
 
-⸻
+- **6.2 Cloud & API Connectors:**
+  - Add importers for cloud drives (Google Drive, Dropbox) using their official APIs.
+  - Integrate with other key services like Zotero.
 
-🌐 Phase 6: Web Content Importers (Playwright)
+- **6.3 System Resilience:**
+  - Introduce message queues (RabbitMQ/Redis Streams) for ingestion tasks to improve retry logic and fault tolerance.
+  - Enhance monitoring with Prometheus/Grafana dashboards.
 
-Goal: Automated import from web sources and cloud services.
+---
 
-6.1 Web Automation Framework
-	•	Playwright for browser automation.
-	•	Persistent browser sessions with cookie management.
-	•	Rate limiting and respectful scraping practices.
+### ✨ Phase 6: Intelligence Layer & Polish (Future)
+**Goal:** Move beyond simple retrieval to proactive knowledge synthesis and advanced intelligence features.
 
-6.2 Source Connectors
-	•	YouTube (watch history, liked videos, subscriptions).
-	•	Readwise (highlights and annotations).
-	•	Twitter/X (bookmarks, likes).
-	•	Reddit (saved posts and comments).
-	•	Email (Gmail, Outlook with OAuth).
+- **7.1 Advanced RAG:**
+  - Refine the QA pipeline to inject parent/child context into LLM prompts for more accurate answers.
+  - Implement an extractive QA fallback for speed and citation accuracy.
 
-6.3 Cloud Drive Integration
-	•	Google Drive API with OAuth 2.0.
-	•	Dropbox API integration.
-	•	Incremental sync with change detection.
+- **7.2 Knowledge Graph:**
+  - Explore building a knowledge graph (e.g., with Neo4j) from entities and tags to surface hidden connections.
 
-⸻
+- **7.3 Proactive Agents:**
+  - Design and prototype agents that can provide unsolicited suggestions, create automated summaries, or identify related content.
 
-🔄 Phase 7: P2P Sync (libp2p/WebRTC)
+---
 
-Goal: Enable secure multi-device synchronization without central server.
+### ✅ MVP Success Criteria
 
-7.1 P2P Architecture
-	•	libp2p for peer discovery and communication.
-	•	WebRTC for direct device-to-device sync.
-	•	mDNS for local network discovery.
-
-7.2 Sync Protocol
-	•	Delta synchronization with conflict resolution.
-	•	Last-write-wins with manual override UI.
-	•	Incremental sync for large files.
-	•	End-to-end encryption between devices.
-
-7.3 Multi-Device Management
-	•	Device registration and trust management.
-	•	Selective sync (choose what to sync).
-	•	Bandwidth-aware sync prioritization.
-
-⸻
-
-🚀 MVP Success Criteria
-
-Core Functionality:
-	•	📱 Mobile quick capture → desktop knowledge base
-	•	💾 Continuous local folder ingestion with AI processing
-	•	🔍 Sub-second semantic search across all content
-	•	🧠 Automatic tagging with >85% relevance (LLM-powered)
-	•	🌐 Web import from 3+ major sources (YouTube, Readwise, etc.)
-
-Technical Requirements:
-	•	📊 Handle 10,000+ items with fast search performance
-	•	🔄 P2P sync between 2+ devices (desktop, mobile)
-	•	🔒 Fully self-hosted, no external dependencies
-	•	⚡ Real-time UI updates and background processing
-	•	🎯 Modern, responsive UI with keyboard shortcuts
-
-Quality Metrics:
-	•	🎨 Beautiful, intuitive interface (shadcn/ui design system)
-	•	⚡ <200ms API response times for search
-	•	🛡️ Robust error handling and recovery
-	•	📱 Native mobile experience with offline capability
-	•	🔧 Easy setup with Docker Compose
+The Minimum Viable Product is complete when a user can:
+- **Capture:** Automatically ingest content from local folders (screenshots) and at least one key web source (e.g., Readwise).
+- **Process:** Have that content automatically OCR'd, chunked, embedded, and tagged.
+- **Search:** Use the desktop UI to perform hybrid keyword/semantic search and get relevant results in <500ms.
+- **Review:** Browse their knowledge base through the hierarchical tree and view individual items.
+- **Sync:** Capture a note on the mobile app and see it appear on the desktop app via P2P sync.

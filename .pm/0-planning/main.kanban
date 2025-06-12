@@ -1,0 +1,728 @@
+{
+  "lists": [
+    {
+      "id": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+      "title": "BACKLOG",
+      "cards": [
+        {
+          "id": "b3f6a7d5-8d1e-4c7b-8f1d-2b4a5d3e0c9f",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "2.1 Local File Ingestion",
+          "description": "Part of 📥 Phase 1: Core Ingestion & Processing (Weeks 5-8)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "f7d1b3e0-3a2b-4e1c-8f9d-1e3c5b7a9d1c",
+              "title": "Phase 1: Ingestion",
+              "color": "#344563"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+              "title": "Implement a local folder watcher using `watchdog` to monitor user-specified directories (e.g., `~/Screenshots`, `~/Downloads`).",
+              "checked": false
+            },
+            {
+              "id": "b2c3d4e5-f6a7-8901-2345-678901bcdef0",
+              "title": "Trigger ingestion jobs for new or modified files.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "2.2 Content Processing Pipeline",
+          "description": "Part of 📥 Phase 1: Core Ingestion & Processing (Weeks 5-8)\n\n**From tech-spec.md:** This pipeline is responsible for transforming raw content into searchable, structured knowledge using steps like partitioning, OCR, normalization, deduplication, and embedding.",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "f7d1b3e0-3a2b-4e1c-8f9d-1e3c5b7a9d1c",
+              "title": "Phase 1: Ingestion",
+              "color": "#344563"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "d5e6f7a8-b9c0-d1e2-f3a4-b5c6d7e8f901",
+              "title": "Integrate `unstructured.io` for robust document partitioning (PDF, HTML, etc.) and OCR.",
+              "checked": false
+            },
+            {
+              "id": "e6f7a8b9-c0d1-e2f3-a4b5-c6d7e8f90123",
+              "title": "Generate SHA-256 content hashes for deduplication.",
+              "checked": false
+            },
+            {
+              "id": "f7a8b9c0-d1e2-f3a4-b5c6-d7e8f9012345",
+              "title": "Extract file metadata (EXIF, timestamps).",
+              "checked": false
+            },
+            {
+              "id": "a8b9c0d1-e2f3-a4b5-c6d7-e8f901234567",
+              "title": "Persist processed content and metadata to PostgreSQL.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "b9c0d1e2-f3a4-4b5c-6d7e-8f9012345678",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "2.3 First Connectors",
+          "description": "Part of 📥 Phase 1: Core Ingestion & Processing (Weeks 5-8)\n\n**From ingestion.md:** Focus on high-value, easy-access sources. Implement connectors for Readwise (API), Screenshots (File Watcher), ChatGPT (Browser Automation), and basic web page scraping.",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "f7d1b3e0-3a2b-4e1c-8f9d-1e3c5b7a9d1c",
+              "title": "Phase 1: Ingestion",
+              "color": "#344563"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "c0d1e2f3-a4b5-c6d7-e8f9-0123456789ab",
+              "title": "Build initial connectors for high-value sources like Readwise (highlights) and basic web page scraping.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "d1e2f3a4-b5c6-4d7e-8f90-123456789abc",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "3.1 AI Enrichment",
+          "description": "Part of 🧠 Phase 2: Intelligent Retrieval & Search (Weeks 9-12)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+              "title": "Phase 2: Search",
+              "color": "#00c2e0"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "e2f3a4b5-c6d7-e8f9-0123-456789abcdef",
+              "title": "Integrate an embedding pipeline using `sentence-transformers` or OpenAI's API.",
+              "checked": false
+            },
+            {
+              "id": "f3a4b5c6-d7e8-f901-2345-6789abcdef01",
+              "title": "Implement LLM-based auto-tagging and summarization for content chunks.",
+              "checked": false
+            },
+            {
+              "id": "a4b5c6d7-e8f9-0123-4567-89abcdef0123",
+              "title": "Store embeddings in `pgvector` and tags/summaries in PostgreSQL.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "b5c6d7e8-f901-4234-5678-9abcdef01234",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "3.2 Hybrid Search API",
+          "description": "Part of 🧠 Phase 2: Intelligent Retrieval & Search (Weeks 9-12)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+              "title": "Phase 2: Search",
+              "color": "#00c2e0"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "c6d7e8f9-0123-4567-89ab-cdef01234567",
+              "title": "Set up Meilisearch and create an indexing pipeline to mirror PostgreSQL data.",
+              "checked": false
+            },
+            {
+              "id": "d7e8f901-2345-6789-abcd-ef0123456789",
+              "title": "Implement a search endpoint in FastAPI that combines Keyword Search (Meilisearch) and Semantic Search (`pgvector`).",
+              "checked": false
+            },
+            {
+              "id": "e8f90123-4567-89ab-cdef-0123456789ab",
+              "title": "Develop a scoring mechanism to merge and rank results from both engines.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "f9012345-6789-4abc-def0-123456789abc",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "3.3 Core API Endpoints",
+          "description": "Part of 🧠 Phase 2: Intelligent Retrieval & Search (Weeks 9-12)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+              "title": "Phase 2: Search",
+              "color": "#00c2e0"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "01234567-89ab-cdef-0123-456789abcdef",
+              "title": "Build out full CRUD (Create, Read, Update, Delete) endpoints for items and tags.",
+              "checked": false
+            },
+            {
+              "id": "12345678-9abc-def0-1234-56789abcdef0",
+              "title": "Implement robust filtering and pagination.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "23456789-abcd-4ef0-1234-56789abcdef01",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "4.1 Frontend Foundation",
+          "description": "Part of 🖥️ Phase 3: Desktop UI & User Experience (Weeks 13-16)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+              "title": "Phase 3: Desktop UI",
+              "color": "#51e898"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "3456789a-bcde-f012-3456-789abcdef012",
+              "title": "Set up a Tauri application with React, Vite, and TypeScript.",
+              "checked": false
+            },
+            {
+              "id": "456789ab-cdef-0123-4567-89abcdef0123",
+              "title": "Integrate Tailwind CSS and `shadcn/ui` for the component library.",
+              "checked": false
+            },
+            {
+              "id": "56789abc-def0-1234-5678-9abcdef01234",
+              "title": "Use TanStack Query for efficient server-state management.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "6789abcd-ef01-4234-5678-9abcdef012345",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "4.2 Core UI Components",
+          "description": "Part of 🖥️ Phase 3: Desktop UI & User Experience (Weeks 13-16)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+              "title": "Phase 3: Desktop UI",
+              "color": "#51e898"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "789abcde-f012-3456-789a-bcdef0123456",
+              "title": "Command Palette (⌘K): A fast, keyboard-driven interface for search.",
+              "checked": false
+            },
+            {
+              "id": "89abcdef-0123-4567-89ab-cdef01234567",
+              "title": "Hierarchical View: A tree-based navigator for browsing content by its `ltree` path.",
+              "checked": false
+            },
+            {
+              "id": "9abcdef0-1234-5678-9abc-def012345678",
+              "title": "Detail View: A component to render item content, metadata, and tags.",
+              "checked": false
+            },
+            {
+              "id": "abcdef01-2345-6789-abcd-ef0123456789",
+              "title": "Tag Management: An interface for creating, editing, and applying tags.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "bcdef012-3456-4789-abcd-ef0123456789a",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "4.3 API Integration",
+          "description": "Part of 🖥️ Phase 3: Desktop UI & User Experience (Weeks 13-16)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+              "title": "Phase 3: Desktop UI",
+              "color": "#51e898"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "cdef0123-4567-89ab-cdef-0123456789ab",
+              "title": "Connect all UI components to the FastAPI backend.",
+              "checked": false
+            },
+            {
+              "id": "def01234-5678-9abc-def0-123456789abc",
+              "title": "Implement WebSocket support for real-time UI updates.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "ef012345-6789-4abc-def0-123456789abcd",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "5.1 Mobile Application",
+          "description": "Part of 📱 Phase 4: Mobile & Sync (Weeks 17-20)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "c3d4e5f6-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+              "title": "Phase 4: Mobile & Sync",
+              "color": "#ff78cb"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "f0123456-789a-bcde-f012-3456789abcde",
+              "title": "Set up a React Native project using NativeWind for styling.",
+              "checked": false
+            },
+            {
+              "id": "01234567-89ab-cdef-0123-456789abcdef",
+              "title": "Implement quick-capture features: text notes, photo/document scanning, and share sheet integration.",
+              "checked": false
+            },
+            {
+              "id": "12345678-9abc-def0-1234-56789abcdef0",
+              "title": "Design a mobile-first interface for search and review.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "23456789-abcd-4ef0-1234-56789abcdef01",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "5.2 P2P Synchronization",
+          "description": "Part of 📱 Phase 4: Mobile & Sync (Weeks 17-20)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "c3d4e5f6-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+              "title": "Phase 4: Mobile & Sync",
+              "color": "#ff78cb"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "3456789a-bcde-f012-3456-789abcdef012",
+              "title": "Design the architecture for P2P sync using WebRTC or `libp2p`.",
+              "checked": false
+            },
+            {
+              "id": "456789ab-cdef-0123-4567-89abcdef0123",
+              "title": "Implement device discovery on local networks (mDNS).",
+              "checked": false
+            },
+            {
+              "id": "56789abc-def0-1234-5678-9abcdef01234",
+              "title": "Develop an initial delta-sync protocol with a last-write-wins conflict resolution strategy.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "6789abcd-ef01-4234-5678-9abcdef012345",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "6.1 Advanced Web Connectors",
+          "description": "Part of 🌐 Phase 5: Advanced Connectors & Scalability (Weeks 21-24)\n\n**From ingestion.md:** Build robust, respectful scrapers using Playwright for complex, dynamic websites like YouTube, Twitter/X, and Reddit. Manage sessions and cookies.",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f90",
+              "title": "Phase 5: Connectors",
+              "color": "#61bd4f"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "789abcde-f012-3456-789a-bcdef0123456",
+              "title": "Build browser automation-based importers using Playwright for sources like YouTube, Twitter/X, and Reddit.",
+              "checked": false
+            },
+            {
+              "id": "89abcdef-0123-4567-89ab-cdef01234567",
+              "title": "Implement respectful scraping practices with appropriate rate limiting.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "9abcdef0-1234-4678-9abc-def012345678",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "6.2 Cloud & API Connectors",
+          "description": "Part of 🌐 Phase 5: Advanced Connectors & Scalability (Weeks 21-24)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f90",
+              "title": "Phase 5: Connectors",
+              "color": "#61bd4f"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "abcdef01-2345-6789-abcd-ef0123456789",
+              "title": "Add importers for cloud drives (Google Drive, Dropbox) using their official APIs.",
+              "checked": false
+            },
+            {
+              "id": "bcdef012-3456-789a-bcde-f0123456789a",
+              "title": "Integrate with other key services like Zotero.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "cdef0123-4567-49ab-cdef-0123456789ab",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "6.3 System Resilience",
+          "description": "Part of 🌐 Phase 5: Advanced Connectors & Scalability (Weeks 21-24)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f90",
+              "title": "Phase 5: Connectors",
+              "color": "#61bd4f"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "def01234-5678-9abc-def0-123456789abc",
+              "title": "Introduce message queues (RabbitMQ/Redis Streams) for ingestion tasks to improve retry logic and fault tolerance.",
+              "checked": false
+            },
+            {
+              "id": "ef012345-6789-abcd-ef01-23456789abcd",
+              "title": "Enhance monitoring with Prometheus/Grafana dashboards.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "f0123456-789a-4cde-f012-3456789abcde",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "7.1 Advanced RAG",
+          "description": "Part of ✨ Phase 6: Intelligence Layer & Polish (Future)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e5f6a7b8-9c0d-1e2f-3a4b-5c6d7e8f9012",
+              "title": "Phase 6: Intelligence",
+              "color": "#c377e0"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "01234567-89ab-cdef-0123-456789abcdef",
+              "title": "Refine the QA pipeline to inject parent/child context into LLM prompts for more accurate answers.",
+              "checked": false
+            },
+            {
+              "id": "12345678-9abc-def0-1234-56789abcdef0",
+              "title": "Implement an extractive QA fallback for speed and citation accuracy.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "23456789-abcd-4ef0-1234-56789abcdef01",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "7.2 Knowledge Graph",
+          "description": "Part of ✨ Phase 6: Intelligence Layer & Polish (Future)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e5f6a7b8-9c0d-1e2f-3a4b-5c6d7e8f9012",
+              "title": "Phase 6: Intelligence",
+              "color": "#c377e0"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "3456789a-bcde-f012-3456-789abcdef012",
+              "title": "Explore building a knowledge graph (e.g., with Neo4j) from entities and tags to surface hidden connections.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "456789ab-cdef-4123-4567-89abcdef0123",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "7.3 Proactive Agents",
+          "description": "Part of ✨ Phase 6: Intelligence Layer & Polish (Future)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e5f6a7b8-9c0d-1e2f-3a4b-5c6d7e8f9012",
+              "title": "Phase 6: Intelligence",
+              "color": "#c377e0"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "56789abc-def0-1234-5678-9abcdef01234",
+              "title": "Design and prototype agents that can provide unsolicited suggestions, create automated summaries, or identify related content.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "a6b7c8d9-e0f1-a2b3-c4d5-e6f7a8b9c0d1",
+          "listId": "43014732-0b2a-436f-bb45-ffce8a9a8aec",
+          "title": "✅ MVP Success Criteria",
+          "description": "Key results required to consider the MVP a success.",
+          "dueDate": null,
+          "labels": [],
+          "checkboxes": [
+            {
+              "id": "b7c8d9e0-f1a2-b3c4-d5e6-f7a8b9c0d1e2",
+              "title": "Capture: Automatically ingest content from local folders (screenshots) and at least one key web source (e.g., Readwise).",
+              "checked": false
+            },
+            {
+              "id": "c8d9e0f1-a2b3-c4d5-e6f7-a8b9c0d1e2f3",
+              "title": "Process: Have that content automatically OCR'd, chunked, embedded, and tagged.",
+              "checked": false
+            },
+            {
+              "id": "d9e0f1a2-b3c4-d5e6-f7a8-b9c0d1e2f3a4",
+              "title": "Search: Use the desktop UI to perform hybrid keyword/semantic search and get relevant results in <500ms.",
+              "checked": false
+            },
+            {
+              "id": "e0f1a2b3-c4d5-e6f7-a8b9-c0d1e2f3a4b5",
+              "title": "Review: Browse their knowledge base through the hierarchical tree and view individual items.",
+              "checked": false
+            },
+            {
+              "id": "f1a2b3c4-d5e6-f7a8-b9c0-d1e2f3a4b5c6",
+              "title": "Sync: Capture a note on the mobile app and see it appear on the desktop app via P2P sync.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        }
+      ]
+    },
+    {
+      "id": "d50afc8c-96c4-49d5-9d44-ac806ac75582",
+      "title": "TODO",
+      "cards": [
+        {
+          "id": "a1b2c3d4-e5f6-4789-0123-456789abcdef",
+          "listId": "d50afc8c-96c4-49d5-9d44-ac806ac75582",
+          "title": "1.1 Project Scaffolding",
+          "description": "Part of 🚀 Phase 0: Foundation & Developer Experience (Weeks 1-4)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e8c7b6a5-4d3c-2b1a-0f9e-8d7c6b5a4d3c",
+              "title": "Phase 0: Foundation",
+              "color": "#ff9f1a"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "b2c3d4e5-f6a7-8901-2345-678901bcdef0",
+              "title": "Initialize a monorepo structure for `backend` and `frontend` packages.",
+              "checked": false
+            },
+            {
+              "id": "c3d4e5f6-a7b8-9012-3456-789012cdef01",
+              "title": "Set up Docker Compose to orchestrate PostgreSQL, Redis, and Meilisearch services.",
+              "checked": false
+            },
+            {
+              "id": "d4e5f6a7-b8c9-0123-4567-890123def012",
+              "title": "Implement basic logging, tracing (OpenTelemetry), and configuration management.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "e5f6a7b8-c9d0-4123-4567-890123456789",
+          "listId": "d50afc8c-96c4-49d5-9d44-ac806ac75582",
+          "title": "1.2 Database & Schema",
+          "description": "Part of 🚀 Phase 0: Foundation & Developer Experience (Weeks 1-4)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e8c7b6a5-4d3c-2b1a-0f9e-8d7c6b5a4d3c",
+              "title": "Phase 0: Foundation",
+              "color": "#ff9f1a"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "f6a7b8c9-d0e1-f2a3-b4c5-d6e7f8a9b0c1",
+              "title": "Configure PostgreSQL with `pgvector` and `ltree` extensions.",
+              "checked": false
+            },
+            {
+              "id": "a7b8c9d0-e1f2-a3b4-c5d6-e7f8a9b0c1d2",
+              "title": "Define core SQLAlchemy models: `Items`, `Chunks`, `Sources`, `Tags`.",
+              "checked": false
+            },
+            {
+              "id": "b8c9d0e1-f2a3-b4c5-d6e7-f8a9b0c1d2e3",
+              "title": "Set up Alembic for database migrations.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f",
+          "listId": "d50afc8c-96c4-49d5-9d44-ac806ac75582",
+          "title": "1.3 Backend API",
+          "description": "Part of 🚀 Phase 0: Foundation & Developer Experience (Weeks 1-4)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e8c7b6a5-4d3c-2b1a-0f9e-8d7c6b5a4d3c",
+              "title": "Phase 0: Foundation",
+              "color": "#ff9f1a"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "d0e1f2a3-b4c5-d6e7-f8a9-b0c1d2e3f4a5",
+              "title": "Initialize a FastAPI application with async support.",
+              "checked": false
+            },
+            {
+              "id": "e1f2a3b4-c5d6-e7f8-a9b0-c1d2e3f4a5b6",
+              "title": "Implement a background task runner (e.g., Celery with Redis).",
+              "checked": false
+            },
+            {
+              "id": "f2a3b4c5-d6e7-f8a9-b0c1-d2e3f4a5b6c7",
+              "title": "Create initial health check and placeholder API endpoints.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        },
+        {
+          "id": "a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d",
+          "listId": "d50afc8c-96c4-49d5-9d44-ac806ac75582",
+          "title": "1.4 Security",
+          "description": "Part of 🚀 Phase 0: Foundation & Developer Experience (Weeks 1-4)",
+          "dueDate": null,
+          "labels": [
+            {
+              "id": "e8c7b6a5-4d3c-2b1a-0f9e-8d7c6b5a4d3c",
+              "title": "Phase 0: Foundation",
+              "color": "#ff9f1a"
+            }
+          ],
+          "checkboxes": [
+            {
+              "id": "b4c5d6e7-f8a9-b0c1-d2e3-f4a5b6c7d8e9",
+              "title": "Set up secret management using Hashicorp Vault or a similar tool for API keys and credentials.",
+              "checked": false
+            }
+          ],
+          "comments": []
+        }
+      ]
+    },
+    {
+      "id": "2dffd02c-2814-422e-b473-40df241454e6",
+      "title": "DOING",
+      "cards": []
+    },
+    {
+      "id": "a9206504-afcc-48fd-bde0-a6a08107f03f",
+      "title": "DONE",
+      "cards": [
+        {
+          "id": "76a2b682-98fa-43f6-ba87-d183ae841613",
+          "listId": "a9206504-afcc-48fd-bde0-a6a08107f03f",
+          "title": "Write PRD",
+          "description": "",
+          "dueDate": null,
+          "labels": [],
+          "checkboxes": [],
+          "comments": [
+            {
+              "id": "fc0e1a7b-7dcf-4eb3-ba11-c509af93eb28",
+              "comment": "ok"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "archive": {
+    "lists": [],
+    "cards": []
+  },
+  "settings": {
+    "labels": [
+      {
+        "id": "e8c7b6a5-4d3c-2b1a-0f9e-8d7c6b5a4d3c",
+        "title": "Phase 0: Foundation",
+        "color": "#ff9f1a"
+      },
+      {
+        "id": "f7d1b3e0-3a2b-4e1c-8f9d-1e3c5b7a9d1c",
+        "title": "Phase 1: Ingestion",
+        "color": "#344563"
+      },
+      {
+        "id": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+        "title": "Phase 2: Search",
+        "color": "#00c2e0"
+      },
+      {
+        "id": "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+        "title": "Phase 3: Desktop UI",
+        "color": "#51e898"
+      },
+      {
+        "id": "c3d4e5f6-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+        "title": "Phase 4: Mobile & Sync",
+        "color": "#ff78cb"
+      },
+      {
+        "id": "d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f90",
+        "title": "Phase 5: Connectors",
+        "color": "#61bd4f"
+      },
+      {
+        "id": "e5f6a7b8-9c0d-1e2f-3a4b-5c6d7e8f9012",
+        "title": "Phase 6: Intelligence",
+        "color": "#c377e0"
+      }
+    ]
+  }
+}

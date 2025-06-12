@@ -59,6 +59,7 @@ dev = [
     "pre-commit>=3.4.0",
     "jupyter>=1.0.0",
     "ipython>=8.15.0",
+    "py-trello>=0.20.1",
 ]
 
 [project.scripts]

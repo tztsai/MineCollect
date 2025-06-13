@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { testDb, testSql } from './setup';
-import { items, chunks } from '../schema';
+import { assets, nodes } from '../schema';
 import { eq, sql } from 'drizzle-orm';
 
 describe('Special PostgreSQL Types', () => {
   describe('ltree path type', () => {
     it('should store and query ltree paths correctly', async () => {
-      const testItems = [
+      const testassets = [
         {
           sourceUri: 'test://ltree/1',
           contentHash: 'ltree1hash',
@@ -33,49 +33,49 @@ describe('Special PostgreSQL Types', () => {
         },
       ];
 
-      await testDb.insert(items).values(testItems);
+      await testDb.insert(assets).values(testassets);
 
       // Test ancestor queries (using SQL directly for ltree operators)
-      const aiItems = await testSql`
+      const aiassets = await testSql`
         SELECT source_uri, path::text 
-        FROM items 
+        FROM assets 
         WHERE path <@ 'Technology.AI'::ltree
         ORDER BY path
       `;
 
-      expect(aiItems).toHaveLength(2);
-      expect(aiItems[0].path).toBe('Technology.AI.MachineLearning');
-      expect(aiItems[1].path).toBe('Technology.AI.NLP');
+      expect(aiassets).toHaveLength(2);
+      expect(aiassets[0].path).toBe('Technology.AI.MachineLearning');
+      expect(aiassets[1].path).toBe('Technology.AI.NLP');
 
       // Test descendant queries
-      const techItems = await testSql`
+      const techassets = await testSql`
         SELECT source_uri, path::text 
-        FROM items 
+        FROM assets 
         WHERE path ~ 'Technology.*'::lquery
         ORDER BY path
       `;
 
-      expect(techItems).toHaveLength(3);
-      expect(techItems.map(item => item.path)).toEqual([
+      expect(techassets).toHaveLength(3);
+      expect(techassets.map(item => item.path)).toEqual([
         'Technology.AI.MachineLearning',
         'Technology.AI.NLP', 
         'Technology.Web.Frontend'
       ]);
 
       // Test path depth
-      const topLevelItems = await testSql`
+      const topLevelassets = await testSql`
         SELECT source_uri, path::text, nlevel(path) as depth
-        FROM items 
+        FROM assets 
         WHERE nlevel(path) = 3
         ORDER BY path
       `;
 
-      expect(topLevelItems).toHaveLength(4);
-      expect(topLevelItems.every(item => item.depth === 3)).toBe(true);
+      expect(topLevelassets).toHaveLength(4);
+      expect(topLevelassets.every(item => item.depth === 3)).toBe(true);
     });
 
     it('should support ltree path manipulation functions', async () => {
-      const [createdItem] = await testDb.insert(items).values({
+      const [createdItem] = await testDb.insert(assets).values({
         sourceUri: 'test://ltree/manipulation',
         contentHash: 'ltreemanipulationhash',
         path: 'Root.Level1.Level2.Level3',
@@ -90,7 +90,7 @@ describe('Special PostgreSQL Types', () => {
           subpath(path, 1)::text as from_second,
           nlevel(path) as depth,
           index(path, 'Level2') as level2_index
-        FROM items 
+        FROM assets 
         WHERE id = ${createdItem.id}
       `;
 
@@ -107,18 +107,18 @@ describe('Special PostgreSQL Types', () => {
   describe('vector embedding type', () => {
     it('should store and retrieve vector embeddings', async () => {
       // Create an item first
-      const [parentItem] = await testDb.insert(items).values({
+      const [parentItem] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/parent',
         contentHash: 'vectorparenthash',
         path: 'Test.Vector.Parent',
         sourceName: 'test',
       }).returning();
 
-      // Create chunks with embeddings
+      // Create nodes with embeddings
       const embedding1 = Array.from({ length: 10 }, (_, i) => i * 0.1); // [0, 0.1, 0.2, ..., 0.9]
       const embedding2 = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.1); // [0.1, 0.2, 0.3, ..., 1.0]
 
-      const [chunk1, chunk2] = await testDb.insert(chunks).values([
+      const [chunk1, chunk2] = await testDb.insert(nodes).values([
         {
           itemId: parentItem.id,
           content: 'First chunk with embedding',
@@ -132,31 +132,31 @@ describe('Special PostgreSQL Types', () => {
       ]).returning();
 
       // Retrieve and verify embeddings
-      const retrievedChunks = await testDb.query.chunks.findMany({
-        where: eq(chunks.itemId, parentItem.id),
-        orderBy: (chunks, { asc }) => [asc(chunks.createdAt)],
+      const retrievednodes = await testDb.query.nodes.findMany({
+        where: eq(nodes.itemId, parentItem.id),
+        orderBy: (nodes, { asc }) => [asc(nodes.createdAt)],
       });
 
-      expect(retrievedChunks).toHaveLength(2);
-      expect(retrievedChunks[0].embedding).toEqual(embedding1);
-      expect(retrievedChunks[1].embedding).toEqual(embedding2);
+      expect(retrievednodes).toHaveLength(2);
+      expect(retrievednodes[0].embedding).toEqual(embedding1);
+      expect(retrievednodes[1].embedding).toEqual(embedding2);
     });
 
     it('should perform vector similarity searches', async () => {
       // Create an item first
-      const [parentItem] = await testDb.insert(items).values({
+      const [parentItem] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/similarity',
         contentHash: 'vectorsimilarityhash',
         path: 'Test.Vector.Similarity',
         sourceName: 'test',
       }).returning();
 
-      // Create chunks with different embeddings
+      // Create nodes with different embeddings
       const baseEmbedding = Array.from({ length: 5 }, (_, i) => i * 0.2); // [0, 0.2, 0.4, 0.6, 0.8]
       const similarEmbedding = Array.from({ length: 5 }, (_, i) => i * 0.2 + 0.01); // [0.01, 0.21, 0.41, 0.61, 0.81]
       const differentEmbedding = Array.from({ length: 5 }, (_, i) => (i + 1) * 0.5); // [0.5, 1.0, 1.5, 2.0, 2.5]
 
-      await testDb.insert(chunks).values([
+      await testDb.insert(nodes).values([
         {
           itemId: parentItem.id,
           content: 'Base content',
@@ -180,7 +180,7 @@ describe('Special PostgreSQL Types', () => {
         SELECT 
           content,
           embedding <=> ${JSON.stringify(queryEmbedding)}::vector as distance
-        FROM chunks 
+        FROM nodes 
         WHERE item_id = ${parentItem.id}
         ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::vector
         LIMIT 3
@@ -200,7 +200,7 @@ describe('Special PostgreSQL Types', () => {
 
     it('should handle null embeddings', async () => {
       // Create an item first
-      const [parentItem] = await testDb.insert(items).values({
+      const [parentItem] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/null',
         contentHash: 'vectornullhash',
         path: 'Test.Vector.Null',
@@ -208,7 +208,7 @@ describe('Special PostgreSQL Types', () => {
       }).returning();
 
       // Create chunk without embedding
-      const [chunk] = await testDb.insert(chunks).values({
+      const [chunk] = await testDb.insert(nodes).values({
         itemId: parentItem.id,
         content: 'Chunk without embedding',
         embedding: null,
@@ -217,8 +217,8 @@ describe('Special PostgreSQL Types', () => {
       expect(chunk.embedding).toBeNull();
 
       // Retrieve and verify
-      const retrievedChunk = await testDb.query.chunks.findFirst({
-        where: eq(chunks.id, chunk.id),
+      const retrievedChunk = await testDb.query.nodes.findFirst({
+        where: eq(nodes.id, chunk.id),
       });
 
       expect(retrievedChunk?.embedding).toBeNull();
@@ -226,7 +226,7 @@ describe('Special PostgreSQL Types', () => {
 
     it('should validate vector dimensions', async () => {
       // Create an item first
-      const [parentItem] = await testDb.insert(items).values({
+      const [parentItem] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/dimensions',
         contentHash: 'vectordimensionshash',
         path: 'Test.Vector.Dimensions',
@@ -237,7 +237,7 @@ describe('Special PostgreSQL Types', () => {
       const correctEmbedding = Array.from({ length: 1536 }, (_, i) => i / 1536);
       
       await expect(
-        testDb.insert(chunks).values({
+        testDb.insert(nodes).values({
           itemId: parentItem.id,
           content: 'Chunk with correct embedding size',
           embedding: correctEmbedding,
@@ -248,7 +248,7 @@ describe('Special PostgreSQL Types', () => {
       const smallEmbedding = [0.1, 0.2, 0.3];
       
       await expect(
-        testDb.insert(chunks).values({
+        testDb.insert(nodes).values({
           itemId: parentItem.id,
           content: 'Chunk with small embedding',
           embedding: smallEmbedding,
@@ -279,7 +279,7 @@ describe('Special PostgreSQL Types', () => {
         processed: true,
       };
 
-      const [createdItem] = await testDb.insert(items).values({
+      const [createdItem] = await testDb.insert(assets).values({
         sourceUri: 'test://jsonb/complex',
         contentHash: 'jsonbcomplexhash',
         path: 'Test.JSONB.Complex',
@@ -288,8 +288,8 @@ describe('Special PostgreSQL Types', () => {
       }).returning();
 
       // Retrieve and verify complete metadata
-      const retrievedItem = await testDb.query.items.findFirst({
-        where: eq(items.id, createdItem.id),
+      const retrievedItem = await testDb.query.assets.findFirst({
+        where: eq(assets.id, createdItem.id),
       });
 
       expect(retrievedItem?.metadata).toEqual(complexMetadata);
@@ -301,7 +301,7 @@ describe('Special PostgreSQL Types', () => {
           metadata->>'metrics'->>'likes' as likes,
           metadata->'tags' as tags_array,
           metadata->>'location'->>'city' as city
-        FROM items 
+        FROM assets 
         WHERE id = ${createdItem.id}
       `;
 
@@ -314,7 +314,7 @@ describe('Special PostgreSQL Types', () => {
     });
 
     it('should support JSONB containment queries', async () => {
-      await testDb.insert(items).values([
+      await testDb.insert(assets).values([
         {
           sourceUri: 'test://jsonb/contain1',
           contentHash: 'jsonbcontain1hash',
@@ -338,29 +338,29 @@ describe('Special PostgreSQL Types', () => {
         },
       ]);
 
-      // Find items with 'ai' tag
-      const aiItems = await testSql`
+      // Find assets with 'ai' tag
+      const aiassets = await testSql`
         SELECT source_uri, metadata
-        FROM items 
+        FROM assets 
         WHERE metadata->'tags' ? 'ai'
         ORDER BY source_uri
       `;
 
-      expect(aiItems).toHaveLength(2);
-      expect(aiItems.map(item => item.source_uri)).toEqual([
+      expect(aiassets).toHaveLength(2);
+      expect(aiassets.map(item => item.source_uri)).toEqual([
         'test://jsonb/contain1',
         'test://jsonb/contain3',
       ]);
 
-      // Find items of type 'article'
-      const articleItems = await testSql`
+      // Find assets of type 'article'
+      const articleassets = await testSql`
         SELECT source_uri
-        FROM items 
+        FROM assets 
         WHERE metadata @> '{"type": "article"}'::jsonb
       `;
 
-      expect(articleItems).toHaveLength(1);
-      expect(articleItems[0].source_uri).toBe('test://jsonb/contain1');
+      expect(articleassets).toHaveLength(1);
+      expect(articleassets[0].source_uri).toBe('test://jsonb/contain1');
     });
   });
 }); 

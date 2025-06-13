@@ -50,86 +50,97 @@ beforeAll(async () => {
     await testSql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
     await testSql`CREATE EXTENSION IF NOT EXISTS pg_trgm`;
 
-    // Create tables using direct SQL since drizzle push isn't working
+    // Drop existing tables if they exist
+    await testSql`DROP TABLE IF EXISTS "asset_tags" CASCADE`;
+    await testSql`DROP TABLE IF EXISTS "nodes" CASCADE`;
+    await testSql`DROP TABLE IF EXISTS "tags" CASCADE`;
+    await testSql`DROP TABLE IF EXISTS "assets" CASCADE`;
+
+    // Create tables using direct SQL
     await testSql`
-      CREATE TABLE IF NOT EXISTS "items" (
+      CREATE TABLE IF NOT EXISTS "assets" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "source_uri" text NOT NULL,
-        "canonical_uri" text,
+        "web_url" text,
         "content_hash" text NOT NULL,
         "path" ltree NOT NULL,
-        "source_name" text NOT NULL,
-        "title" text,
-        "display_content" text,
-        "raw_content" jsonb,
         "metadata" jsonb,
-        "item_timestamp" timestamp with time zone,
-        "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-        "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-        CONSTRAINT "items_source_uri_unique" UNIQUE("source_uri"),
-        CONSTRAINT "items_content_hash_unique" UNIQUE("content_hash")
+        "timestamp" timestamp with time zone,
+        "root_node_id" uuid,
+        CONSTRAINT "assets_source_uri_unique" UNIQUE("source_uri"),
+        CONSTRAINT "assets_content_hash_unique" UNIQUE("content_hash")
       )
     `;
 
     await testSql`
-      CREATE TABLE IF NOT EXISTS "chunks" (
+      CREATE TABLE IF NOT EXISTS "nodes" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "item_id" uuid NOT NULL,
-        "content" text NOT NULL,
+        "asset_id" uuid NOT NULL,
+        "parent_id" uuid,
+        "title" text,
+        "content" text,
         "embedding" vector(1536),
         "metadata" jsonb,
-        "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+        "updated_at" timestamp with time zone DEFAULT now() NOT NULL
       )
     `;
 
     await testSql`
       CREATE TABLE IF NOT EXISTS "tags" (
-        "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "name" text NOT NULL,
+        "parent_id" uuid,
         CONSTRAINT "tags_name_unique" UNIQUE("name")
       )
     `;
 
     await testSql`
-      CREATE TABLE IF NOT EXISTS "item_tags" (
-        "item_id" uuid NOT NULL,
-        "tag_id" integer NOT NULL,
-        CONSTRAINT "item_tags_item_id_tag_id_pk" PRIMARY KEY("item_id","tag_id")
+      CREATE TABLE IF NOT EXISTS "asset_tags" (
+        "asset_id" uuid NOT NULL,
+        "tag_id" uuid NOT NULL,
+        "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+        CONSTRAINT "asset_tags_asset_id_tag_id_pk" PRIMARY KEY("asset_id","tag_id")
       )
     `;
 
     // Create indexes
-    await testSql`CREATE INDEX IF NOT EXISTS "source_name_idx" ON "items" ("source_name")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "path_idx" ON "items" USING GIST ("path")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "item_timestamp_idx" ON "items" ("item_timestamp")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "chunk_item_id_idx" ON "chunks" ("item_id")`;
+    await testSql`CREATE INDEX IF NOT EXISTS "source_uri_idx" ON "assets" ("source_uri")`;
+    await testSql`CREATE INDEX IF NOT EXISTS "path_idx" ON "assets" USING GIST ("path")`;
+    await testSql`CREATE INDEX IF NOT EXISTS "timestamp_idx" ON "assets" ("timestamp")`;
+    await testSql`CREATE INDEX IF NOT EXISTS "node_asset_idx" ON "nodes" ("asset_id")`;
+    await testSql`CREATE INDEX IF NOT EXISTS "node_parent_idx" ON "nodes" ("parent_id")`;
 
     // Create foreign key constraints
     await testSql`
-      DO $$ BEGIN
-        ALTER TABLE "chunks" ADD CONSTRAINT "chunks_item_id_items_id_fk" 
-        FOREIGN KEY ("item_id") REFERENCES "items"("id") ON DELETE cascade ON UPDATE no action;
-      EXCEPTION
-        WHEN duplicate_object THEN null;
-      END $$
+      ALTER TABLE "nodes" ADD CONSTRAINT "nodes_asset_id_assets_id_fk" 
+      FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE cascade ON UPDATE no action
     `;
 
     await testSql`
-      DO $$ BEGIN
-        ALTER TABLE "item_tags" ADD CONSTRAINT "item_tags_item_id_items_id_fk" 
-        FOREIGN KEY ("item_id") REFERENCES "items"("id") ON DELETE cascade ON UPDATE no action;
-      EXCEPTION
-        WHEN duplicate_object THEN null;
-      END $$
+      ALTER TABLE "nodes" ADD CONSTRAINT "nodes_parent_id_nodes_id_fk" 
+      FOREIGN KEY ("parent_id") REFERENCES "nodes"("id") ON DELETE set null ON UPDATE no action
     `;
 
     await testSql`
-      DO $$ BEGIN
-        ALTER TABLE "item_tags" ADD CONSTRAINT "item_tags_tag_id_tags_id_fk" 
-        FOREIGN KEY ("tag_id") REFERENCES "tags"("id") ON DELETE cascade ON UPDATE no action;
-      EXCEPTION
-        WHEN duplicate_object THEN null;
-      END $$
+      ALTER TABLE "tags" ADD CONSTRAINT "tags_parent_id_tags_id_fk" 
+      FOREIGN KEY ("parent_id") REFERENCES "tags"("id") ON DELETE set null ON UPDATE no action
+    `;
+
+    await testSql`
+      ALTER TABLE "asset_tags" ADD CONSTRAINT "asset_tags_asset_id_assets_id_fk" 
+      FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE cascade ON UPDATE no action
+    `;
+
+    await testSql`
+      ALTER TABLE "asset_tags" ADD CONSTRAINT "asset_tags_tag_id_tags_id_fk" 
+      FOREIGN KEY ("tag_id") REFERENCES "tags"("id") ON DELETE cascade ON UPDATE no action
+    `;
+
+    // Add the circular reference last, after both tables exist
+    await testSql`
+      ALTER TABLE "assets" ADD CONSTRAINT "assets_root_node_id_nodes_id_fk" 
+      FOREIGN KEY ("root_node_id") REFERENCES "nodes"("id") ON DELETE set null ON UPDATE no action
     `;
 
   } catch (error) {
@@ -151,8 +162,8 @@ export { testDb, testSql };
 // Clean up tables between tests
 beforeEach(async () => {
   // Clear all tables in the correct order to avoid foreign key constraints
-  await testDb.delete(schema.itemTags);
-  await testDb.delete(schema.chunks);
+  await testDb.delete(schema.assetTags);
+  await testDb.delete(schema.nodes);
   await testDb.delete(schema.tags);
-  await testDb.delete(schema.items);
+  await testDb.delete(schema.assets);
 }); 

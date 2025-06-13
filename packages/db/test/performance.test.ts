@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { testDb, testSql } from './setup';
-import { items, chunks } from '../schema';
+import { assets, nodes } from '../schema';
 import { eq, like, sql } from 'drizzle-orm';
 
 describe('Performance Tests', () => {
@@ -12,7 +12,7 @@ describe('Performance Tests', () => {
       path: `Performance.Test.Batch${Math.floor(i / 10)}.Item${i}`,
       sourceName: i % 3 === 0 ? 'twitter' : i % 3 === 1 ? 'readwise' : 'local',
       title: `Performance Test Item ${i}`,
-      displayContent: `This is test content for performance testing item number ${i}. It contains various keywords like technology, artificial intelligence, machine learning, and data science.`,
+      content: `This is test content for performance testing item number ${i}. It contains various keywords like technology, artificial intelligence, machine learning, and data science.`,
       metadata: {
         batch: Math.floor(i / 10),
         index: i,
@@ -21,26 +21,26 @@ describe('Performance Tests', () => {
       itemTimestamp: new Date(2023, 0, 1 + i), // Spread over 100 days
     }));
 
-    await testDb.insert(items).values(testItems);
+    await testDb.insert(assets).values(testItems);
 
     // Insert chunks for vector search testing
-    const allItems = await testDb.query.items.findMany();
+    const allItems = await testDb.query.assets.findMany();
     const testChunks = allItems.slice(0, 50).map((item, i) => ({
       itemId: item.id,
-      content: `Chunk content for item ${i}: ${item.displayContent}`,
+      content: `Chunk content for item ${i}: ${item.content}`,
       embedding: Array.from({ length: 100 }, (_, j) => Math.sin(i * 0.1 + j * 0.01)), // Deterministic embeddings
       metadata: { chunkIndex: 0, itemIndex: i },
     }));
 
-    await testDb.insert(chunks).values(testChunks);
+    await testDb.insert(nodes).values(testChunks);
   }, 30000);
 
   describe('Index Performance', () => {
     it('should perform fast lookups by sourceUri (unique index)', async () => {
       const startTime = Date.now();
 
-      const item = await testDb.query.items.findFirst({
-        where: eq(items.sourceUri, 'test://performance/item50'),
+      const item = await testDb.query.assets.findFirst({
+        where: eq(assets.sourceUri, 'test://performance/item50'),
       });
 
       const endTime = Date.now();
@@ -54,8 +54,8 @@ describe('Performance Tests', () => {
     it('should perform efficient queries by sourceName (indexed)', async () => {
       const startTime = Date.now();
 
-      const twitterItems = await testDb.query.items.findMany({
-        where: eq(items.sourceName, 'twitter'),
+      const twitterItems = await testDb.query.assets.findMany({
+        where: eq(assets.sourceName, 'twitter'),
       });
 
       const endTime = Date.now();
@@ -109,8 +109,8 @@ describe('Performance Tests', () => {
     it('should perform text search efficiently', async () => {
       const startTime = Date.now();
 
-      const searchResults = await testDb.query.items.findMany({
-        where: like(items.displayContent, '%artificial intelligence%'),
+      const searchResults = await testDb.query.assets.findMany({
+        where: like(assets.content, '%artificial intelligence%'),
       });
 
       const endTime = Date.now();
@@ -119,7 +119,7 @@ describe('Performance Tests', () => {
       expect(searchResults.length).toBeGreaterThan(0);
       expect(queryTime).toBeLessThan(200); // Text search might be slower without full-text index
       expect(searchResults.every(item => 
-        item.displayContent?.includes('artificial intelligence')
+        item.content?.includes('artificial intelligence')
       )).toBe(true);
     });
 
@@ -174,7 +174,7 @@ describe('Performance Tests', () => {
 
     it('should handle batch vector insertions efficiently', async () => {
       // Create a test item
-      const [testItem] = await testDb.insert(items).values({
+      const [testItem] = await testDb.insert(assets).values({
         sourceUri: 'test://performance/batch-vectors',
         contentHash: 'batchvectorshash',
         path: 'Performance.BatchVectors',
@@ -192,7 +192,7 @@ describe('Performance Tests', () => {
 
       const startTime = Date.now();
 
-      await testDb.insert(chunks).values(batchChunks);
+      await testDb.insert(nodes).values(batchChunks);
 
       const endTime = Date.now();
       const insertTime = endTime - startTime;
@@ -200,8 +200,8 @@ describe('Performance Tests', () => {
       expect(insertTime).toBeLessThan(5000); // Should complete within 5 seconds
 
       // Verify all chunks were inserted
-      const insertedChunks = await testDb.query.chunks.findMany({
-        where: eq(chunks.itemId, testItem.id),
+      const insertedChunks = await testDb.query.nodes.findMany({
+        where: eq(nodes.assetId, testItem.id),
       });
 
       expect(insertedChunks.length).toBe(batchSize);
@@ -253,8 +253,8 @@ describe('Performance Tests', () => {
 
       // Execute multiple queries concurrently
       const promises = Array.from({ length: concurrentQueries }, (_, i) => 
-        testDb.query.items.findMany({
-          where: eq(items.sourceName, i % 2 === 0 ? 'twitter' : 'readwise'),
+        testDb.query.assets.findMany({
+          where: eq(assets.sourceUri, i % 2 === 0 ? 'twitter' : 'readwise'),
           limit: 10,
         })
       );
@@ -276,13 +276,13 @@ describe('Performance Tests', () => {
       const startTime = Date.now();
 
       // Test paginated query
-      const firstPage = await testDb.query.items.findMany({
+      const firstPage = await testDb.query.assets.findMany({
         limit: pageSize,
         offset: 0,
         orderBy: (items, { asc }) => [asc(items.createdAt)],
       });
 
-      const secondPage = await testDb.query.items.findMany({
+      const secondPage = await testDb.query.assets.findMany({
         limit: pageSize,
         offset: pageSize,
         orderBy: (items, { asc }) => [asc(items.createdAt)],

@@ -1,221 +1,222 @@
 import { describe, it, expect } from 'vitest';
 import { testDb } from './setup';
-import { items, chunks, tags, itemTags } from '../schema';
+import { assets, nodes, tags, assetTags } from '../schema';
 import { eq, and } from 'drizzle-orm';
 
+// Create a 1536-dimensional vector for testing
+function createTestEmbedding(seed: number): number[] {
+  return Array.from({ length: 1536 }, (_, i) => (seed + i) * 0.01);
+}
+
 describe('CRUD Operations', () => {
-  describe('Items', () => {
-    it('should create and retrieve an item', async () => {
-      const newItem = {
-        sourceUri: 'test://example/item1',
-        canonicalUri: 'https://example.com/item1',
+  describe('Assets', () => {
+    it('should create and retrieve an asset', async () => {
+      const newAsset = {
+        sourceUri: 'test://example/asset1',
+        webUrl: 'https://example.com/asset1',
         contentHash: 'abc123hash',
-        path: 'Test.Example.Item1',
-        sourceName: 'test',
-        title: 'Test Item 1',
-        displayContent: 'This is a test item for testing purposes',
-        rawContent: { type: 'test', data: 'raw content' },
+        path: 'Test.Example.Asset1',
         metadata: { tags: ['test', 'example'], priority: 'high' },
-        itemTimestamp: new Date('2023-01-01T00:00:00Z'),
+        timestamp: new Date('2023-01-01T00:00:00Z'),
       };
 
-      // Create item
-      const [createdItem] = await testDb.insert(items).values(newItem).returning();
+      // Create asset
+      const [createdAsset] = await testDb.insert(assets).values(newAsset).returning();
       
-      expect(createdItem).toMatchObject({
-        sourceUri: newItem.sourceUri,
-        canonicalUri: newItem.canonicalUri,
-        contentHash: newItem.contentHash,
-        path: newItem.path,
-        sourceName: newItem.sourceName,
-        title: newItem.title,
-        displayContent: newItem.displayContent,
+      expect(createdAsset).toMatchObject({
+        sourceUri: newAsset.sourceUri,
+        webUrl: newAsset.webUrl,
+        contentHash: newAsset.contentHash,
+        path: newAsset.path,
       });
-      expect(createdItem.id).toBeDefined();
-      expect(createdItem.createdAt).toBeInstanceOf(Date);
-      expect(createdItem.updatedAt).toBeInstanceOf(Date);
+      expect(createdAsset.id).toBeDefined();
 
-      // Retrieve item
-      const retrievedItem = await testDb.query.items.findFirst({
-        where: eq(items.id, createdItem.id),
-      });
+      // Retrieve asset
+      const retrievedAsset = await testDb.select().from(assets)
+        .where(eq(assets.id, createdAsset.id))
+        .then(results => results[0]);
 
-      expect(retrievedItem).toMatchObject(createdItem);
+      expect(retrievedAsset).toMatchObject(createdAsset);
     });
 
     it('should enforce unique constraints', async () => {
-      const item1 = {
+      const asset1 = {
         sourceUri: 'test://example/unique1',
         contentHash: 'unique123hash',
-        path: 'Test.Unique.Item1',
-        sourceName: 'test',
+        path: 'Test.Unique.Asset1',
       };
 
-      // Create first item successfully
-      await testDb.insert(items).values(item1);
+      // Create first asset successfully
+      await testDb.insert(assets).values(asset1);
 
-      // Try to create item with same sourceUri - should fail
+      // Try to create asset with same sourceUri - should fail
       await expect(
-        testDb.insert(items).values({ ...item1, sourceUri: 'test://example/unique1' })
+        testDb.insert(assets).values({ ...asset1, sourceUri: 'test://example/unique1' })
       ).rejects.toThrow();
 
-      // Try to create item with same contentHash - should fail
+      // Try to create asset with same contentHash - should fail
       await expect(
-        testDb.insert(items).values({ ...item1, sourceUri: 'test://example/unique2' })
+        testDb.insert(assets).values({ ...asset1, sourceUri: 'test://example/unique2' })
       ).rejects.toThrow();
     });
 
-    it('should update an item', async () => {
-      const newItem = {
+    it('should update an asset', async () => {
+      const newAsset = {
         sourceUri: 'test://example/update1',
         contentHash: 'update123hash',
-        path: 'Test.Update.Item1',
-        sourceName: 'test',
-        title: 'Original Title',
+        path: 'Test.Update.Asset1',
+        metadata: { original: true },
       };
 
-      const [createdItem] = await testDb.insert(items).values(newItem).returning();
+      const [createdAsset] = await testDb.insert(assets).values(newAsset).returning();
 
-      // Update the item
-      const [updatedItem] = await testDb
-        .update(items)
+      // Update the asset
+      const [updatedAsset] = await testDb
+        .update(assets)
         .set({ 
-          title: 'Updated Title',
-          displayContent: 'Updated content',
-          updatedAt: new Date(),
+          webUrl: 'https://example.com/updated',
+          metadata: { updated: true },
         })
-        .where(eq(items.id, createdItem.id))
+        .where(eq(assets.id, createdAsset.id))
         .returning();
 
-      expect(updatedItem.title).toBe('Updated Title');
-      expect(updatedItem.displayContent).toBe('Updated content');
-      expect(updatedItem.updatedAt.getTime()).toBeGreaterThan(createdItem.updatedAt.getTime());
+      expect(updatedAsset.webUrl).toBe('https://example.com/updated');
+      expect(updatedAsset.metadata).toEqual({ updated: true });
     });
 
-    it('should delete an item', async () => {
-      const newItem = {
+    it('should delete an asset', async () => {
+      const newAsset = {
         sourceUri: 'test://example/delete1',
         contentHash: 'delete123hash',
-        path: 'Test.Delete.Item1',
-        sourceName: 'test',
+        path: 'Test.Delete.Asset1',
       };
 
-      const [createdItem] = await testDb.insert(items).values(newItem).returning();
+      const [createdAsset] = await testDb.insert(assets).values(newAsset).returning();
 
-      // Delete the item
-      await testDb.delete(items).where(eq(items.id, createdItem.id));
+      // Delete the asset
+      await testDb.delete(assets).where(eq(assets.id, createdAsset.id));
 
       // Verify it's deleted
-      const retrievedItem = await testDb.query.items.findFirst({
-        where: eq(items.id, createdItem.id),
-      });
+      const retrievedAsset = await testDb.select().from(assets)
+        .where(eq(assets.id, createdAsset.id))
+        .then(results => results[0]);
 
-      expect(retrievedItem).toBeUndefined();
+      expect(retrievedAsset).toBeUndefined();
     });
   });
 
-  describe('Chunks', () => {
-    it('should create and retrieve chunks for an item', async () => {
-      // First create an item
-      const [parentItem] = await testDb.insert(items).values({
-        sourceUri: 'test://example/chunk-parent',
-        contentHash: 'chunkparent123hash',
-        path: 'Test.Chunks.Parent',
-        sourceName: 'test',
+  describe('Nodes', () => {
+    it('should create and retrieve nodes for an asset', async () => {
+      // First create an asset
+      const [parentAsset] = await testDb.insert(assets).values({
+        sourceUri: 'test://example/node-parent',
+        contentHash: 'nodeparent123hash',
+        path: 'Test.Nodes.Parent',
       }).returning();
 
-      // Create chunks
-      const chunk1 = {
-        itemId: parentItem.id,
-        content: 'This is the first chunk of content',
-        embedding: [0.1, 0.2, 0.3, 0.4, 0.5], // Small vector for testing
-        metadata: { chunkIndex: 0, page: 1 },
-      };
+      // Create root node
+      const [rootNode] = await testDb.insert(nodes).values({
+        assetId: parentAsset.id,
+        title: 'Root Node',
+        content: 'This is the root node content',
+        embedding: createTestEmbedding(1), // Use 1536-dimensional vector
+        metadata: { nodeType: 'root' },
+      }).returning();
 
-      const chunk2 = {
-        itemId: parentItem.id,
-        content: 'This is the second chunk of content',
-        embedding: [0.6, 0.7, 0.8, 0.9, 1.0],
-        metadata: { chunkIndex: 1, page: 1 },
-      };
+      // Create child node
+      const [childNode] = await testDb.insert(nodes).values({
+        assetId: parentAsset.id,
+        parentId: rootNode.id,
+        title: 'Child Node',
+        content: 'This is a child node content',
+        embedding: createTestEmbedding(2), // Use 1536-dimensional vector
+        metadata: { nodeType: 'child' },
+      }).returning();
 
-      const createdChunks = await testDb.insert(chunks).values([chunk1, chunk2]).returning();
+      // Update asset with root node reference
+      await testDb.update(assets)
+        .set({ rootNodeId: rootNode.id })
+        .where(eq(assets.id, parentAsset.id));
 
-      expect(createdChunks).toHaveLength(2);
-      expect(createdChunks[0].content).toBe(chunk1.content);
-      expect(createdChunks[1].content).toBe(chunk2.content);
+      // Retrieve nodes for the asset
+      const retrievedNodes = await testDb.select().from(nodes)
+        .where(eq(nodes.assetId, parentAsset.id))
+        .orderBy(nodes.createdAt);
 
-      // Retrieve chunks for the item
-      const retrievedChunks = await testDb.query.chunks.findMany({
-        where: eq(chunks.itemId, parentItem.id),
-        orderBy: (chunks, { asc }) => [asc(chunks.createdAt)],
-      });
+      expect(retrievedNodes).toHaveLength(2);
+      expect(retrievedNodes[0].title).toBe('Root Node');
+      expect(retrievedNodes[1].title).toBe('Child Node');
+      expect(retrievedNodes[1].parentId).toBe(rootNode.id);
 
-      expect(retrievedChunks).toHaveLength(2);
-      expect(retrievedChunks[0].content).toBe(chunk1.content);
-      expect(retrievedChunks[1].content).toBe(chunk2.content);
+      // Test node tree structure
+      const childNodes = await testDb.select().from(nodes)
+        .where(eq(nodes.parentId, rootNode.id));
+
+      expect(childNodes).toHaveLength(1);
+      expect(childNodes[0].id).toBe(childNode.id);
     });
 
-    it('should cascade delete chunks when item is deleted', async () => {
-      // Create item and chunk
-      const [parentItem] = await testDb.insert(items).values({
+    it('should cascade delete nodes when asset is deleted', async () => {
+      // Create asset and node
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://example/cascade-delete',
         contentHash: 'cascadedelete123hash',
         path: 'Test.Cascade.Delete',
-        sourceName: 'test',
       }).returning();
 
-      const [createdChunk] = await testDb.insert(chunks).values({
-        itemId: parentItem.id,
-        content: 'This chunk should be deleted when item is deleted',
+      const [createdNode] = await testDb.insert(nodes).values({
+        assetId: parentAsset.id,
+        content: 'This node should be deleted when asset is deleted',
       }).returning();
 
-      // Delete the parent item
-      await testDb.delete(items).where(eq(items.id, parentItem.id));
+      // Delete the parent asset
+      await testDb.delete(assets).where(eq(assets.id, parentAsset.id));
 
-      // Verify the chunk was also deleted
-      const retrievedChunk = await testDb.query.chunks.findFirst({
-        where: eq(chunks.id, createdChunk.id),
-      });
+      // Verify the node was also deleted
+      const retrievedNode = await testDb.select().from(nodes)
+        .where(eq(nodes.id, createdNode.id))
+        .then(results => results[0]);
 
-      expect(retrievedChunk).toBeUndefined();
+      expect(retrievedNode).toBeUndefined();
     });
   });
 
-  describe('Tags and ItemTags', () => {
-    it('should create tags and associate them with items', async () => {
-      // Create an item
-      const [parentItem] = await testDb.insert(items).values({
+  describe('Tags and AssetTags', () => {
+    it('should create tags and associate them with assets', async () => {
+      // Create an asset
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://example/tags-test',
         contentHash: 'tagstest123hash',
-        path: 'Test.Tags.Item',
-        sourceName: 'test',
+        path: 'Test.Tags.Asset',
       }).returning();
 
       // Create tags
       const [tag1] = await testDb.insert(tags).values({ name: 'ai' }).returning();
       const [tag2] = await testDb.insert(tags).values({ name: 'machine-learning' }).returning();
 
-      // Associate tags with item
-      await testDb.insert(itemTags).values([
-        { itemId: parentItem.id, tagId: tag1.id },
-        { itemId: parentItem.id, tagId: tag2.id },
+      // Associate tags with asset
+      await testDb.insert(assetTags).values([
+        { assetId: parentAsset.id, tagId: tag1.id },
+        { assetId: parentAsset.id, tagId: tag2.id },
       ]);
 
-      // Retrieve item with tags
-      const itemWithTags = await testDb.query.items.findFirst({
-        where: eq(items.id, parentItem.id),
-        with: {
-          itemTags: {
-            with: {
-              tag: true,
-            },
-          },
-        },
-      });
-
-      expect(itemWithTags?.itemTags).toHaveLength(2);
-      const tagNames = itemWithTags?.itemTags.map(it => it.tag.name).sort();
+      // Retrieve asset with tags
+      const assetTagsResult = await testDb.select().from(assetTags)
+        .where(eq(assetTags.assetId, parentAsset.id));
+      
+      expect(assetTagsResult).toHaveLength(2);
+      
+      // Get the associated tags
+      const tagIds = assetTagsResult.map(at => at.tagId);
+      const tagResults = await Promise.all(
+        tagIds.map(id => 
+          testDb.select().from(tags)
+            .where(eq(tags.id, id))
+            .then(results => results[0])
+        )
+      );
+      
+      const tagNames = tagResults.map(t => t.name).sort();
       expect(tagNames).toEqual(['ai', 'machine-learning']);
     });
 
@@ -229,40 +230,65 @@ describe('CRUD Operations', () => {
       ).rejects.toThrow();
     });
 
-    it('should cascade delete item-tag associations when item is deleted', async () => {
-      // Create item and tag
-      const [parentItem] = await testDb.insert(items).values({
+    it('should create hierarchical tag structure', async () => {
+      // Create parent tag
+      const [parentTag] = await testDb.insert(tags).values({ 
+        name: 'programming' 
+      }).returning();
+      
+      // Create child tags
+      const [childTag1] = await testDb.insert(tags).values({ 
+        name: 'javascript',
+        parentId: parentTag.id
+      }).returning();
+      
+      const [childTag2] = await testDb.insert(tags).values({ 
+        name: 'python',
+        parentId: parentTag.id
+      }).returning();
+
+      // Test tag tree structure
+      const childTags = await testDb.select().from(tags)
+        .where(eq(tags.parentId, parentTag.id));
+
+      expect(childTags).toHaveLength(2);
+      const childTagNames = childTags.map(t => t.name).sort();
+      expect(childTagNames).toEqual(['javascript', 'python']);
+    });
+
+    it('should cascade delete asset-tag associations when asset is deleted', async () => {
+      // Create asset and tag
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://example/tag-cascade',
         contentHash: 'tagcascade123hash',
-        path: 'Test.TagCascade.Item',
-        sourceName: 'test',
+        path: 'Test.TagCascade.Asset',
       }).returning();
 
       const [tag] = await testDb.insert(tags).values({ name: 'cascade-tag' }).returning();
 
-      // Associate tag with item
-      await testDb.insert(itemTags).values({
-        itemId: parentItem.id,
+      // Associate tag with asset
+      await testDb.insert(assetTags).values({
+        assetId: parentAsset.id,
         tagId: tag.id,
       });
 
-      // Delete the item
-      await testDb.delete(items).where(eq(items.id, parentItem.id));
+      // Delete the asset
+      await testDb.delete(assets).where(eq(assets.id, parentAsset.id));
 
       // Verify the association was deleted
-      const association = await testDb.query.itemTags.findFirst({
-        where: and(
-          eq(itemTags.itemId, parentItem.id),
-          eq(itemTags.tagId, tag.id)
-        ),
-      });
+      const association = await testDb.select().from(assetTags)
+        .where(and(
+          eq(assetTags.assetId, parentAsset.id),
+          eq(assetTags.tagId, tag.id)
+        ))
+        .then(results => results[0]);
 
       expect(association).toBeUndefined();
 
       // Verify the tag still exists
-      const retrievedTag = await testDb.query.tags.findFirst({
-        where: eq(tags.id, tag.id),
-      });
+      const retrievedTag = await testDb.select().from(tags)
+        .where(eq(tags.id, tag.id))
+        .then(results => results[0]);
 
       expect(retrievedTag).toBeDefined();
     });

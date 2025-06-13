@@ -89,8 +89,8 @@ export const itemRouter = createTRPCRouter({
     .input(z.object({ query: z.string() }))
     .query(async ({ input }) => {
       // Basic full-text search example
-      return await db.query.items.findMany({
-        where: like(items.displayContent, `%${input.query}%`),
+      return await db.query.assets.findMany({
+        where: like(items.content, `%${input.query}%`),
         limit: 50,
       });
     }),

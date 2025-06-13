@@ -162,6 +162,12 @@ import {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull().unique(),
     parentId: uuid("parent_id").references(() => tags.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   });
   
   /**

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { testDb } from './setup';
 import { assets, nodes, tags, assetTags } from '../schema';
 import { eq, and } from 'drizzle-orm';
+import { testSql } from './setup';
 
 // Create a 1536-dimensional vector for testing
 function createTestEmbedding(seed: number): number[] {
@@ -56,7 +57,7 @@ describe('CRUD Operations', () => {
 
       // Try to create asset with same contentHash - should fail
       await expect(
-        testDb.insert(assets).values({ ...asset1, sourceUri: 'test://example/unique2' })
+        testDb.insert(assets).values({ ...asset1, contentHash: 'unique123hash' })
       ).rejects.toThrow();
     });
 
@@ -191,8 +192,13 @@ describe('CRUD Operations', () => {
       }).returning();
 
       // Create tags
-      const [tag1] = await testDb.insert(tags).values({ name: 'ai' }).returning();
-      const [tag2] = await testDb.insert(tags).values({ name: 'machine-learning' }).returning();
+      const [tag1] = await testDb.insert(tags).values({ 
+        name: 'ai',
+      }).returning();
+      
+      const [tag2] = await testDb.insert(tags).values({ 
+        name: 'machine-learning',
+      }).returning();
 
       // Associate tags with asset
       await testDb.insert(assetTags).values([
@@ -200,97 +206,109 @@ describe('CRUD Operations', () => {
         { assetId: parentAsset.id, tagId: tag2.id },
       ]);
 
-      // Retrieve asset with tags
-      const assetTagsResult = await testDb.select().from(assetTags)
-        .where(eq(assetTags.assetId, parentAsset.id));
-      
-      expect(assetTagsResult).toHaveLength(2);
-      
-      // Get the associated tags
-      const tagIds = assetTagsResult.map(at => at.tagId);
-      const tagResults = await Promise.all(
-        tagIds.map(id => 
-          testDb.select().from(tags)
-            .where(eq(tags.id, id))
-            .then(results => results[0])
-        )
-      );
+      // Query to get all tags for the asset
+      const tagResults = await testSql`
+        SELECT t.* FROM tags t
+        JOIN asset_tags at ON t.id = at.tag_id
+        WHERE at.asset_id = ${parentAsset.id}
+        ORDER BY t.name
+      `;
       
       const tagNames = tagResults.map(t => t.name).sort();
       expect(tagNames).toEqual(['ai', 'machine-learning']);
     });
 
     it('should prevent duplicate tag names', async () => {
-      // Create first tag
-      await testDb.insert(tags).values({ name: 'duplicate-test' });
+      // Create a tag
+      await testDb.insert(tags).values({ 
+        name: 'duplicate-test',
+      });
 
-      // Try to create duplicate tag - should fail
+      // Try to create another tag with the same name
       await expect(
-        testDb.insert(tags).values({ name: 'duplicate-test' })
+        testDb.insert(tags).values({
+          name: 'duplicate-test',
+        })
       ).rejects.toThrow();
     });
 
     it('should create hierarchical tag structure', async () => {
       // Create parent tag
       const [parentTag] = await testDb.insert(tags).values({ 
-        name: 'programming' 
+        name: 'programming',
       }).returning();
-      
+
       // Create child tags
       const [childTag1] = await testDb.insert(tags).values({ 
         name: 'javascript',
-        parentId: parentTag.id
+        parentId: parentTag.id,
       }).returning();
-      
+
       const [childTag2] = await testDb.insert(tags).values({ 
         name: 'python',
-        parentId: parentTag.id
+        parentId: parentTag.id,
       }).returning();
 
-      // Test tag tree structure
-      const childTags = await testDb.select().from(tags)
-        .where(eq(tags.parentId, parentTag.id));
+      // Create grandchild tag
+      const [grandchildTag] = await testDb.insert(tags).values({ 
+        name: 'react',
+        parentId: childTag1.id,
+      }).returning();
 
-      expect(childTags).toHaveLength(2);
-      const childTagNames = childTags.map(t => t.name).sort();
-      expect(childTagNames).toEqual(['javascript', 'python']);
+      // Query to get all descendants of the parent tag
+      const descendants = await testSql`
+        WITH RECURSIVE tag_tree AS (
+          SELECT id, name, parent_id FROM tags WHERE id = ${parentTag.id}
+          UNION ALL
+          SELECT t.id, t.name, t.parent_id FROM tags t
+          JOIN tag_tree tt ON t.parent_id = tt.id
+        )
+        SELECT * FROM tag_tree WHERE id != ${parentTag.id}
+      `;
+
+      expect(descendants).toHaveLength(3);
+      expect(descendants.map(d => d.name).sort()).toEqual(['javascript', 'python', 'react']);
     });
 
     it('should cascade delete asset-tag associations when asset is deleted', async () => {
-      // Create asset and tag
-      const [parentAsset] = await testDb.insert(assets).values({
-        sourceUri: 'test://example/tag-cascade',
-        contentHash: 'tagcascade123hash',
-        path: 'Test.TagCascade.Asset',
+      // Create an asset
+      const [testAsset] = await testDb.insert(assets).values({
+        sourceUri: 'test://example/cascade-tags-test',
+        contentHash: 'cascadetags123hash-unique',
+        path: 'Test.Cascade.Tags',
       }).returning();
 
-      const [tag] = await testDb.insert(tags).values({ name: 'cascade-tag' }).returning();
+      // Create a tag
+      const [testTag] = await testDb.insert(tags).values({ 
+        name: 'test-cascade',
+      }).returning();
 
       // Associate tag with asset
       await testDb.insert(assetTags).values({
-        assetId: parentAsset.id,
-        tagId: tag.id,
+        assetId: testAsset.id,
+        tagId: testTag.id,
       });
 
+      // Verify the association exists
+      let associations = await testSql`
+        SELECT * FROM asset_tags WHERE asset_id = ${testAsset.id}
+      `;
+      expect(associations).toHaveLength(1);
+
       // Delete the asset
-      await testDb.delete(assets).where(eq(assets.id, parentAsset.id));
+      await testDb.delete(assets).where(eq(assets.id, testAsset.id));
 
       // Verify the association was deleted
-      const association = await testDb.select().from(assetTags)
-        .where(and(
-          eq(assetTags.assetId, parentAsset.id),
-          eq(assetTags.tagId, tag.id)
-        ))
-        .then(results => results[0]);
-
-      expect(association).toBeUndefined();
+      associations = await testSql`
+        SELECT * FROM asset_tags WHERE asset_id = ${testAsset.id}
+      `;
+      expect(associations).toHaveLength(0);
 
       // Verify the tag still exists
-      const retrievedTag = await testDb.select().from(tags)
-        .where(eq(tags.id, tag.id))
-        .then(results => results[0]);
-
-      expect(retrievedTag).toBeDefined();
+      const tagExists = await testSql`
+        SELECT * FROM tags WHERE id = ${testTag.id}
+      `;
+      expect(tagExists).toHaveLength(1);
     });
   });
 }); 

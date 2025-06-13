@@ -2,168 +2,120 @@ import { beforeAll, afterAll, beforeEach } from 'vitest';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '../schema';
+import { randomUUID } from 'crypto';
 
-let testDb: ReturnType<typeof drizzle>;
-let testSql: ReturnType<typeof postgres>;
+// Setup test database connection
+const connectionString = process.env.TEST_DATABASE_URL || 
+  'postgresql://minecollect:minecollect_dev@localhost:5432/minecollect_test';
 
-// Global setup - connect to test database
-beforeAll(async () => {
-  // Use a separate test database or schema
-  const connectionString = process.env.TEST_DATABASE_URL || 
-    'postgresql://minecollect:minecollect_dev@localhost:5432/minecollect_test';
-  
-  // Create database connection
-  testSql = postgres(connectionString, { 
-    ssl: false,
-    max: 10,
-    onnotice: () => {}, // Suppress NOTICE messages
-  });
-  
-  testDb = drizzle(testSql, { schema });
-
-  try {
-    // Create test database if it doesn't exist
-    const mainConnectionString = 'postgresql://minecollect:minecollect_dev@localhost:5432/minecollect';
-    const mainSql = postgres(mainConnectionString, { max: 1 });
-    
-    try {
-      await mainSql`CREATE DATABASE minecollect_test`;
-    } catch (error) {
-      // Database might already exist, that's fine
-      console.log('Test database already exists or creation failed:', (error as Error).message);
-    } finally {
-      await mainSql.end();
-    }
-
-    // Reconnect to the test database
-    await testSql.end();
-    testSql = postgres(connectionString, { 
-      ssl: false,
-      max: 10,
-      onnotice: () => {},
-    });
-    testDb = drizzle(testSql, { schema });
-
-    // Install required extensions in test database
-    await testSql`CREATE EXTENSION IF NOT EXISTS vector`;
-    await testSql`CREATE EXTENSION IF NOT EXISTS ltree`;
-    await testSql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
-    await testSql`CREATE EXTENSION IF NOT EXISTS pg_trgm`;
-
-    // Drop existing tables if they exist
-    await testSql`DROP TABLE IF EXISTS "asset_tags" CASCADE`;
-    await testSql`DROP TABLE IF EXISTS "nodes" CASCADE`;
-    await testSql`DROP TABLE IF EXISTS "tags" CASCADE`;
-    await testSql`DROP TABLE IF EXISTS "assets" CASCADE`;
-
-    // Create tables using direct SQL
-    await testSql`
-      CREATE TABLE IF NOT EXISTS "assets" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "source_uri" text NOT NULL,
-        "web_url" text,
-        "content_hash" text NOT NULL,
-        "path" ltree NOT NULL,
-        "metadata" jsonb,
-        "timestamp" timestamp with time zone,
-        "root_node_id" uuid,
-        CONSTRAINT "assets_source_uri_unique" UNIQUE("source_uri"),
-        CONSTRAINT "assets_content_hash_unique" UNIQUE("content_hash")
-      )
-    `;
-
-    await testSql`
-      CREATE TABLE IF NOT EXISTS "nodes" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "asset_id" uuid NOT NULL,
-        "parent_id" uuid,
-        "title" text,
-        "content" text,
-        "embedding" vector(1536),
-        "metadata" jsonb,
-        "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-        "updated_at" timestamp with time zone DEFAULT now() NOT NULL
-      )
-    `;
-
-    await testSql`
-      CREATE TABLE IF NOT EXISTS "tags" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "name" text NOT NULL,
-        "parent_id" uuid,
-        CONSTRAINT "tags_name_unique" UNIQUE("name")
-      )
-    `;
-
-    await testSql`
-      CREATE TABLE IF NOT EXISTS "asset_tags" (
-        "asset_id" uuid NOT NULL,
-        "tag_id" uuid NOT NULL,
-        "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-        CONSTRAINT "asset_tags_asset_id_tag_id_pk" PRIMARY KEY("asset_id","tag_id")
-      )
-    `;
-
-    // Create indexes
-    await testSql`CREATE INDEX IF NOT EXISTS "source_uri_idx" ON "assets" ("source_uri")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "path_idx" ON "assets" USING GIST ("path")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "timestamp_idx" ON "assets" ("timestamp")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "node_asset_idx" ON "nodes" ("asset_id")`;
-    await testSql`CREATE INDEX IF NOT EXISTS "node_parent_idx" ON "nodes" ("parent_id")`;
-
-    // Create foreign key constraints
-    await testSql`
-      ALTER TABLE "nodes" ADD CONSTRAINT "nodes_asset_id_assets_id_fk" 
-      FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE cascade ON UPDATE no action
-    `;
-
-    await testSql`
-      ALTER TABLE "nodes" ADD CONSTRAINT "nodes_parent_id_nodes_id_fk" 
-      FOREIGN KEY ("parent_id") REFERENCES "nodes"("id") ON DELETE set null ON UPDATE no action
-    `;
-
-    await testSql`
-      ALTER TABLE "tags" ADD CONSTRAINT "tags_parent_id_tags_id_fk" 
-      FOREIGN KEY ("parent_id") REFERENCES "tags"("id") ON DELETE set null ON UPDATE no action
-    `;
-
-    await testSql`
-      ALTER TABLE "asset_tags" ADD CONSTRAINT "asset_tags_asset_id_assets_id_fk" 
-      FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE cascade ON UPDATE no action
-    `;
-
-    await testSql`
-      ALTER TABLE "asset_tags" ADD CONSTRAINT "asset_tags_tag_id_tags_id_fk" 
-      FOREIGN KEY ("tag_id") REFERENCES "tags"("id") ON DELETE cascade ON UPDATE no action
-    `;
-
-    // Add the circular reference last, after both tables exist
-    await testSql`
-      ALTER TABLE "assets" ADD CONSTRAINT "assets_root_node_id_nodes_id_fk" 
-      FOREIGN KEY ("root_node_id") REFERENCES "nodes"("id") ON DELETE set null ON UPDATE no action
-    `;
-
-  } catch (error) {
-    console.error('Failed to set up test database:', error);
-    throw error;
-  }
-}, 30000);
-
-// Global teardown
-afterAll(async () => {
-  if (testSql) {
-    await testSql.end();
-  }
+// Create SQL client
+export const testSql = postgres(connectionString, { 
+  ssl: false,
+  max: 10,
+  onnotice: () => {}, // Suppress NOTICE messages
 });
 
-// Export test utilities
-export { testDb, testSql };
+// Create a unique schema for each test run to avoid conflicts
+const testSchema = `test_${randomUUID().replace(/-/g, '_')}`;
+
+// Setup and teardown for tests
+beforeAll(async () => {
+  console.log(`Setting up test schema: ${testSchema}`);
+  
+  // Create the test schema
+  await testSql`CREATE SCHEMA IF NOT EXISTS ${testSql.unsafe(testSchema)}`;
+  
+  // Set the search path to our test schema
+  await testSql`SET search_path TO ${testSql.unsafe(testSchema)}, public`;
+  
+  // Create the PostgreSQL extensions if they don't exist
+  await testSql`CREATE EXTENSION IF NOT EXISTS vector`;
+  await testSql`CREATE EXTENSION IF NOT EXISTS ltree`;
+  
+  // Create tables with the updated schema
+  await testSql`
+    CREATE TABLE IF NOT EXISTS ${testSql.unsafe(`${testSchema}.assets`)} (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      "source_uri" text NOT NULL UNIQUE,
+      "web_url" text,
+      "content_hash" text NOT NULL UNIQUE,
+      "path" ltree NOT NULL,
+      "metadata" jsonb,
+      "timestamp" timestamptz,
+      "root_node_id" uuid
+    )
+  `;
+  
+  await testSql`
+    CREATE TABLE IF NOT EXISTS ${testSql.unsafe(`${testSchema}.nodes`)} (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      "asset_id" uuid NOT NULL REFERENCES ${testSql.unsafe(`${testSchema}.assets`)}("id") ON DELETE CASCADE,
+      "parent_id" uuid REFERENCES ${testSql.unsafe(`${testSchema}.nodes`)}("id"),
+      "title" text,
+      "content" text,
+      "embedding" vector(1536),
+      "metadata" jsonb,
+      "created_at" timestamptz NOT NULL DEFAULT now(),
+      "updated_at" timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  
+  await testSql`
+    CREATE TABLE IF NOT EXISTS ${testSql.unsafe(`${testSchema}.tags`)} (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      "name" text NOT NULL UNIQUE,
+      "parent_id" uuid REFERENCES ${testSql.unsafe(`${testSchema}.tags`)}("id"),
+      "created_at" timestamptz NOT NULL DEFAULT now(),
+      "updated_at" timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  
+  await testSql`
+    CREATE TABLE IF NOT EXISTS ${testSql.unsafe(`${testSchema}.asset_tags`)} (
+      "asset_id" uuid NOT NULL REFERENCES ${testSql.unsafe(`${testSchema}.assets`)}("id") ON DELETE CASCADE,
+      "tag_id" uuid NOT NULL REFERENCES ${testSql.unsafe(`${testSchema}.tags`)}("id") ON DELETE CASCADE,
+      "created_at" timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY ("asset_id", "tag_id")
+    )
+  `;
+  
+  // Create indexes
+  await testSql`CREATE INDEX IF NOT EXISTS "source_uri_idx" ON ${testSql.unsafe(`${testSchema}.assets`)} ("source_uri")`;
+  await testSql`CREATE INDEX IF NOT EXISTS "path_idx" ON ${testSql.unsafe(`${testSchema}.assets`)} USING GIST ("path")`;
+  await testSql`CREATE INDEX IF NOT EXISTS "timestamp_idx" ON ${testSql.unsafe(`${testSchema}.assets`)} ("timestamp")`;
+  await testSql`CREATE INDEX IF NOT EXISTS "node_asset_idx" ON ${testSql.unsafe(`${testSchema}.nodes`)} ("asset_id")`;
+  await testSql`CREATE INDEX IF NOT EXISTS "node_parent_idx" ON ${testSql.unsafe(`${testSchema}.nodes`)} ("parent_id")`;
+  await testSql`CREATE INDEX IF NOT EXISTS "node_embedding_idx" ON ${testSql.unsafe(`${testSchema}.nodes`)} USING ivfflat ("embedding" vector_l2_ops)`;
+  
+  // Add the circular reference for rootNodeId
+  await testSql`
+    ALTER TABLE ${testSql.unsafe(`${testSchema}.assets`)} 
+    ADD CONSTRAINT "assets_root_node_id_fk" 
+    FOREIGN KEY ("root_node_id") REFERENCES ${testSql.unsafe(`${testSchema}.nodes`)}("id") ON DELETE SET NULL
+  `;
+  
+  // Create drizzle instance with the test schema
+  testDb = drizzle(testSql, { 
+    schema,
+    // We'll set the schema via SQL search_path instead
+  });
+});
+
+// Export the testDb variable
+export let testDb: ReturnType<typeof drizzle>;
 
 // Clean up tables between tests
 beforeEach(async () => {
-  // Clear all tables in the correct order to avoid foreign key constraints
-  await testDb.delete(schema.assetTags);
-  await testDb.delete(schema.nodes);
-  await testDb.delete(schema.tags);
-  await testDb.delete(schema.assets);
+  // Clear all tables in a single transaction to avoid deadlocks
+  await testSql.begin(async sql => {
+    await sql`TRUNCATE TABLE ${sql.unsafe(`${testSchema}.asset_tags`)}, ${sql.unsafe(`${testSchema}.tags`)}, ${sql.unsafe(`${testSchema}.nodes`)}, ${sql.unsafe(`${testSchema}.assets`)} CASCADE`;
+  });
+});
+
+afterAll(async () => {
+  // Drop the test schema
+  await testSql`DROP SCHEMA IF EXISTS ${testSql.unsafe(testSchema)} CASCADE`;
+  
+  // Close the database connection
+  await testSql.end();
 }); 

@@ -3,83 +3,84 @@ import { testDb, testSql } from './setup';
 import { assets, nodes } from '../schema';
 import { eq, sql } from 'drizzle-orm';
 
+// Create a 1536-dimensional vector for testing
+function createTestEmbedding(seed: number): number[] {
+  // Use integer values to avoid floating point precision issues
+  return Array.from({ length: 1536 }, (_, i) => Math.round((seed + i) * 100) / 100);
+}
+
 describe('Special PostgreSQL Types', () => {
   describe('ltree path type', () => {
     it('should store and query ltree paths correctly', async () => {
-      const testassets = [
+      const testAssets = [
         {
           sourceUri: 'test://ltree/1',
           contentHash: 'ltree1hash',
           path: 'Technology.AI.MachineLearning',
-          sourceName: 'test',
         },
         {
           sourceUri: 'test://ltree/2', 
           contentHash: 'ltree2hash',
           path: 'Technology.AI.NLP',
-          sourceName: 'test',
         },
         {
           sourceUri: 'test://ltree/3',
           contentHash: 'ltree3hash', 
           path: 'Technology.Web.Frontend',
-          sourceName: 'test',
         },
         {
           sourceUri: 'test://ltree/4',
           contentHash: 'ltree4hash',
           path: 'Books.Fiction.SciFi',
-          sourceName: 'test',
         },
       ];
 
-      await testDb.insert(assets).values(testassets);
+      await testDb.insert(assets).values(testAssets);
 
       // Test ancestor queries (using SQL directly for ltree operators)
-      const aiassets = await testSql`
+      const aiAssets = await testSql`
         SELECT source_uri, path::text 
         FROM assets 
         WHERE path <@ 'Technology.AI'::ltree
         ORDER BY path
       `;
 
-      expect(aiassets).toHaveLength(2);
-      expect(aiassets[0].path).toBe('Technology.AI.MachineLearning');
-      expect(aiassets[1].path).toBe('Technology.AI.NLP');
+      expect(aiAssets).toHaveLength(2);
+      expect(aiAssets[0].path).toBe('Technology.AI.MachineLearning');
+      expect(aiAssets[1].path).toBe('Technology.AI.NLP');
 
       // Test descendant queries
-      const techassets = await testSql`
+      const techAssets = await testSql`
         SELECT source_uri, path::text 
         FROM assets 
         WHERE path ~ 'Technology.*'::lquery
         ORDER BY path
       `;
 
-      expect(techassets).toHaveLength(3);
-      expect(techassets.map(item => item.path)).toEqual([
+      expect(techAssets).toHaveLength(3);
+      expect(techAssets.map(item => item.path)).toEqual([
         'Technology.AI.MachineLearning',
         'Technology.AI.NLP', 
         'Technology.Web.Frontend'
       ]);
 
       // Test path depth
-      const topLevelassets = await testSql`
+      const topLevelAssets = await testSql`
         SELECT source_uri, path::text, nlevel(path) as depth
         FROM assets 
         WHERE nlevel(path) = 3
         ORDER BY path
       `;
 
-      expect(topLevelassets).toHaveLength(4);
-      expect(topLevelassets.every(item => item.depth === 3)).toBe(true);
+      expect(topLevelAssets).toHaveLength(4);
+      expect(topLevelAssets.every(item => item.depth === 3)).toBe(true);
     });
 
     it('should support ltree path manipulation functions', async () => {
-      const [createdItem] = await testDb.insert(assets).values({
+      const [createdAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://ltree/manipulation',
         contentHash: 'ltreemanipulationhash',
         path: 'Root.Level1.Level2.Level3',
-        sourceName: 'test',
       }).returning();
 
       // Test subpath extraction
@@ -91,7 +92,7 @@ describe('Special PostgreSQL Types', () => {
           nlevel(path) as depth,
           index(path, 'Level2') as level2_index
         FROM assets 
-        WHERE id = ${createdItem.id}
+        WHERE id = ${createdAsset.id}
       `;
 
       expect(pathManipulation[0]).toMatchObject({
@@ -106,69 +107,66 @@ describe('Special PostgreSQL Types', () => {
 
   describe('vector embedding type', () => {
     it('should store and retrieve vector embeddings', async () => {
-      // Create an item first
-      const [parentItem] = await testDb.insert(assets).values({
+      // Create an asset first
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/parent',
         contentHash: 'vectorparenthash',
         path: 'Test.Vector.Parent',
-        sourceName: 'test',
       }).returning();
 
       // Create nodes with embeddings
-      const embedding1 = Array.from({ length: 10 }, (_, i) => i * 0.1); // [0, 0.1, 0.2, ..., 0.9]
-      const embedding2 = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.1); // [0.1, 0.2, 0.3, ..., 1.0]
+      const embedding1 = createTestEmbedding(0); // 1536-dimensional vector
+      const embedding2 = createTestEmbedding(1); // 1536-dimensional vector
 
-      const [chunk1, chunk2] = await testDb.insert(nodes).values([
+      const [node1, node2] = await testDb.insert(nodes).values([
         {
-          itemId: parentItem.id,
+          assetId: parentAsset.id,
           content: 'First chunk with embedding',
           embedding: embedding1,
         },
         {
-          itemId: parentItem.id,
+          assetId: parentAsset.id,
           content: 'Second chunk with embedding', 
           embedding: embedding2,
         },
       ]).returning();
 
       // Retrieve and verify embeddings
-      const retrievednodes = await testDb.query.nodes.findMany({
-        where: eq(nodes.itemId, parentItem.id),
-        orderBy: (nodes, { asc }) => [asc(nodes.createdAt)],
-      });
+      const retrievedNodes = await testDb.select().from(nodes)
+        .where(eq(nodes.assetId, parentAsset.id))
+        .orderBy(nodes.createdAt);
 
-      expect(retrievednodes).toHaveLength(2);
-      expect(retrievednodes[0].embedding).toEqual(embedding1);
-      expect(retrievednodes[1].embedding).toEqual(embedding2);
+      expect(retrievedNodes).toHaveLength(2);
+      expect(retrievedNodes[0].embedding).toEqual(embedding1);
+      expect(retrievedNodes[1].embedding).toEqual(embedding2);
     });
 
     it('should perform vector similarity searches', async () => {
-      // Create an item first
-      const [parentItem] = await testDb.insert(assets).values({
+      // Create an asset first
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/similarity',
         contentHash: 'vectorsimilarityhash',
         path: 'Test.Vector.Similarity',
-        sourceName: 'test',
       }).returning();
 
       // Create nodes with different embeddings
-      const baseEmbedding = Array.from({ length: 5 }, (_, i) => i * 0.2); // [0, 0.2, 0.4, 0.6, 0.8]
-      const similarEmbedding = Array.from({ length: 5 }, (_, i) => i * 0.2 + 0.01); // [0.01, 0.21, 0.41, 0.61, 0.81]
-      const differentEmbedding = Array.from({ length: 5 }, (_, i) => (i + 1) * 0.5); // [0.5, 1.0, 1.5, 2.0, 2.5]
+      const baseEmbedding = createTestEmbedding(0); // 1536-dimensional vector
+      const similarEmbedding = createTestEmbedding(0.01); // Similar to base
+      const differentEmbedding = createTestEmbedding(10); // Very different
 
       await testDb.insert(nodes).values([
         {
-          itemId: parentItem.id,
+          assetId: parentAsset.id,
           content: 'Base content',
           embedding: baseEmbedding,
         },
         {
-          itemId: parentItem.id,
+          assetId: parentAsset.id,
           content: 'Similar content',
           embedding: similarEmbedding,
         },
         {
-          itemId: parentItem.id,
+          assetId: parentAsset.id,
           content: 'Different content',
           embedding: differentEmbedding,
         },
@@ -181,7 +179,7 @@ describe('Special PostgreSQL Types', () => {
           content,
           embedding <=> ${JSON.stringify(queryEmbedding)}::vector as distance
         FROM nodes 
-        WHERE item_id = ${parentItem.id}
+        WHERE asset_id = ${parentAsset.id}
         ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::vector
         LIMIT 3
       `;
@@ -199,168 +197,172 @@ describe('Special PostgreSQL Types', () => {
     });
 
     it('should handle null embeddings', async () => {
-      // Create an item first
-      const [parentItem] = await testDb.insert(assets).values({
+      // Create an asset first
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/null',
         contentHash: 'vectornullhash',
         path: 'Test.Vector.Null',
-        sourceName: 'test',
       }).returning();
 
-      // Create chunk without embedding
-      const [chunk] = await testDb.insert(nodes).values({
-        itemId: parentItem.id,
+      // Create a node with null embedding
+      await testDb.insert(nodes).values({
+        assetId: parentAsset.id,
         content: 'Chunk without embedding',
         embedding: null,
-      }).returning();
-
-      expect(chunk.embedding).toBeNull();
-
-      // Retrieve and verify
-      const retrievedChunk = await testDb.query.nodes.findFirst({
-        where: eq(nodes.id, chunk.id),
       });
 
-      expect(retrievedChunk?.embedding).toBeNull();
+      // Retrieve and verify
+      const retrievedNode = await testDb.select().from(nodes)
+        .where(eq(nodes.assetId, parentAsset.id))
+        .then(results => results[0]);
+
+      expect(retrievedNode.content).toBe('Chunk without embedding');
+      expect(retrievedNode.embedding).toBeNull();
     });
 
     it('should validate vector dimensions', async () => {
-      // Create an item first
-      const [parentItem] = await testDb.insert(assets).values({
+      // Create an asset first
+      const [parentAsset] = await testDb.insert(assets).values({
         sourceUri: 'test://vector/dimensions',
         contentHash: 'vectordimensionshash',
         path: 'Test.Vector.Dimensions',
-        sourceName: 'test',
-      });
+      }).returning();
 
-      // Test with correct dimensions (should work - our custom type expects any array)
-      const correctEmbedding = Array.from({ length: 1536 }, (_, i) => i / 1536);
-      
+      // Create a vector with correct dimensions
+      const correctEmbedding = createTestEmbedding(0);
+
+      // Create a vector with incorrect dimensions
+      const incorrectEmbedding = [0.1, 0.2, 0.3]; // Only 3 dimensions
+
+      // Correct dimensions should work
       await expect(
         testDb.insert(nodes).values({
-          itemId: parentItem.id,
+          assetId: parentAsset.id,
           content: 'Chunk with correct embedding size',
           embedding: correctEmbedding,
         })
-      ).resolves.not.toThrow();
+      ).resolves.toBeDefined();
 
-      // Test with different dimensions (should also work with our current implementation)
-      const smallEmbedding = [0.1, 0.2, 0.3];
-      
+      // Incorrect dimensions should fail
       await expect(
         testDb.insert(nodes).values({
-          itemId: parentItem.id,
-          content: 'Chunk with small embedding',
-          embedding: smallEmbedding,
+          assetId: parentAsset.id,
+          content: 'Chunk with incorrect embedding size',
+          embedding: incorrectEmbedding,
         })
-      ).resolves.not.toThrow();
+      ).rejects.toThrow(/expected 1536 dimensions/);
     });
   });
 
   describe('JSONB metadata', () => {
     it('should store and query complex JSON metadata', async () => {
       const complexMetadata = {
-        source: {
-          platform: 'twitter',
-          userId: '12345',
-          username: 'testuser',
+        author: {
+          name: 'Jane Smith',
+          email: 'jane@example.com',
+          profile: {
+            age: 32,
+            interests: ['AI', 'Machine Learning', 'Data Science']
+          }
         },
-        metrics: {
-          likes: 150,
-          retweets: 25,
-          replies: 5,
+        stats: {
+          views: 1250,
+          likes: 42,
+          shares: 15
         },
-        tags: ['ai', 'tech', 'startup'],
-        location: {
-          lat: 37.7749,
-          lng: -122.4194,
-          city: 'San Francisco',
-        },
-        processed: true,
+        tags: ['research', 'ai', 'academic']
       };
 
-      const [createdItem] = await testDb.insert(assets).values({
+      // Insert asset with complex metadata
+      const [asset] = await testDb.insert(assets).values({
         sourceUri: 'test://jsonb/complex',
-        contentHash: 'jsonbcomplexhash',
+        contentHash: 'jsonbcomplex123hash',
         path: 'Test.JSONB.Complex',
-        sourceName: 'test',
-        metadata: complexMetadata,
+        metadata: complexMetadata
       }).returning();
 
-      // Retrieve and verify complete metadata
-      const retrievedItem = await testDb.query.assets.findFirst({
-        where: eq(assets.id, createdItem.id),
-      });
+      // Retrieve the asset with metadata
+      const retrievedAsset = await testSql`
+        SELECT * FROM assets WHERE id = ${asset.id}
+      `.then(results => results[0]);
 
-      expect(retrievedItem?.metadata).toEqual(complexMetadata);
+      // PostgreSQL might return JSON as a string, so we need to parse it if it's a string
+      const retrievedMetadata = typeof retrievedAsset.metadata === 'string' 
+        ? JSON.parse(retrievedAsset.metadata) 
+        : retrievedAsset.metadata;
+        
+      expect(retrievedMetadata).toEqual(complexMetadata);
 
       // Test JSONB path queries
-      const pathQueries = await testSql`
-        SELECT 
-          metadata->>'source'->>'platform' as platform,
-          metadata->>'metrics'->>'likes' as likes,
-          metadata->'tags' as tags_array,
-          metadata->>'location'->>'city' as city
-        FROM assets 
-        WHERE id = ${createdItem.id}
+      const authorNameResult = await testSql`
+        SELECT metadata->'author'->>'name' as author_name
+        FROM assets
+        WHERE id = ${asset.id}
       `;
+      expect(authorNameResult[0].author_name).toBe('Jane Smith');
 
-      expect(pathQueries[0]).toMatchObject({
-        platform: 'twitter',
-        likes: '150',
-        city: 'San Francisco',
-      });
-      expect(JSON.parse(pathQueries[0].tags_array)).toEqual(['ai', 'tech', 'startup']);
+      // Test JSONB array element access
+      const secondInterestResult = await testSql`
+        SELECT metadata->'author'->'profile'->'interests'->1 as second_interest
+        FROM assets
+        WHERE id = ${asset.id}
+      `;
+      expect(secondInterestResult[0].second_interest).toBe('"Machine Learning"');
     });
 
     it('should support JSONB containment queries', async () => {
+      // Insert assets with different metadata
       await testDb.insert(assets).values([
         {
           sourceUri: 'test://jsonb/contain1',
           contentHash: 'jsonbcontain1hash',
           path: 'Test.JSONB.Contain1',
-          sourceName: 'test',
-          metadata: { tags: ['ai', 'ml'], type: 'article' },
+          metadata: {
+            topics: ['ai', 'machine learning'],
+            type: 'article'
+          }
         },
         {
           sourceUri: 'test://jsonb/contain2',
           contentHash: 'jsonbcontain2hash',
-          path: 'Test.JSONB.Contain2', 
-          sourceName: 'test',
-          metadata: { tags: ['web', 'frontend'], type: 'tutorial' },
+          path: 'Test.JSONB.Contain2',
+          metadata: {
+            topics: ['ai', 'robotics'],
+            type: 'video'
+          }
         },
         {
           sourceUri: 'test://jsonb/contain3',
           contentHash: 'jsonbcontain3hash',
           path: 'Test.JSONB.Contain3',
-          sourceName: 'test',
-          metadata: { tags: ['ai', 'nlp'], type: 'research' },
-        },
+          metadata: {
+            topics: ['database', 'sql'],
+            type: 'tutorial'
+          }
+        }
       ]);
 
-      // Find assets with 'ai' tag
-      const aiassets = await testSql`
-        SELECT source_uri, metadata
-        FROM assets 
-        WHERE metadata->'tags' ? 'ai'
+      // Query for assets that have 'ai' in their topics array
+      const aiAssets = await testSql`
+        SELECT source_uri FROM assets
+        WHERE metadata @> '{"topics": ["ai"]}'::jsonb
         ORDER BY source_uri
       `;
 
-      expect(aiassets).toHaveLength(2);
-      expect(aiassets.map(item => item.source_uri)).toEqual([
+      expect(aiAssets).toHaveLength(2);
+      expect(aiAssets.map(item => item.source_uri)).toEqual([
         'test://jsonb/contain1',
-        'test://jsonb/contain3',
+        'test://jsonb/contain2'
       ]);
 
-      // Find assets of type 'article'
-      const articleassets = await testSql`
-        SELECT source_uri
-        FROM assets 
-        WHERE metadata @> '{"type": "article"}'::jsonb
+      // Query for assets of type 'article'
+      const articleAssets = await testSql`
+        SELECT source_uri FROM assets
+        WHERE metadata->>'type' = 'article'
       `;
 
-      expect(articleassets).toHaveLength(1);
-      expect(articleassets[0].source_uri).toBe('test://jsonb/contain1');
+      expect(articleAssets).toHaveLength(1);
+      expect(articleAssets[0].source_uri).toBe('test://jsonb/contain1');
     });
   });
 }); 

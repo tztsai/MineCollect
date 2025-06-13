@@ -1,0 +1,24 @@
+{
+  "name": "minecollect",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:db": "docker-compose up -d postgres redis meilisearch",
+    "db:stop": "docker-compose down",
+    "db:logs": "docker-compose logs -f postgres",
+    "db:generate": "cd packages/db && pnpm run db:generate",
+    "db:migrate": "cd packages/db && pnpm run db:migrate",
+    "db:studio": "cd packages/db && pnpm run db:studio",
+    "db:push": "cd packages/db && pnpm run db:push",
+    "db:reset": "docker-compose down -v && docker-compose up -d postgres redis meilisearch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.8.0",
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  }
+}

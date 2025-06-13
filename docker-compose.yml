@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: minecollect-postgres
+    environment:
+      POSTGRES_DB: minecollect
+      POSTGRES_USER: minecollect
+      POSTGRES_PASSWORD: minecollect_dev
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - minecollect
+
+  redis:
+    image: redis:7-alpine
+    container_name: minecollect-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - minecollect
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.5
+    container_name: minecollect-meilisearch
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: minecollect_dev_key
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - minecollect
+
+volumes:
+  postgres_data:
+  redis_data:
+  meilisearch_data:
+
+networks:
+  minecollect:
+    driver: bridge 

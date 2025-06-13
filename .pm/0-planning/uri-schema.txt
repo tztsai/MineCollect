@@ -110,7 +110,7 @@ mine://snapshots/reddit/2025-06-08-xyz456
 In Items table:
 
 source_uri: string // stores any of the above
-canonical_url: string | null // if available (https)
+web_url: string | null // if available (https)
 hash: string // sha256 of normalized content
 
 

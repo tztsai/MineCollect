@@ -37,8 +37,7 @@ graph TD
     end
 ```
 *   **Clients (Desktop/CLI):** Communicate via tRPC for end-to-end type-safe data fetching and mutations.
-*   **TypeScript Backend:** The system's core. It handles all standard CRUD operations, authentication, job queuing, and direct interaction with the database. It is the single source of truth for data.
-*   **Python AI Services:** These are small, stateless FastAPI services, each with a single responsibility. They are called by the TypeScript backend when heavy-duty AI processing is required.
+*   **TypeScript Backend:** The system's core. It handles all standard CRUD operations, authentication, job queuing, and direct interaction with the database. It is the single source of truth for data. Managed using a monorepo with Turbo and pnpm workspaces.
 
 ---
 
@@ -50,9 +49,9 @@ We will adopt the excellent structure from `karakeep` as our foundation, adaptin
 /minecollect
 ├── apps/
 │   ├── cli/             # Typer + Textual CLI
-│   ├── web/             # Next.js frontend
 │   ├── mobile/          # React Native frontend
 │   ├── desktop/         # Tauri + React frontend
+│   ├── workers/         # BullMQ background workers for ingestion
 ├── packages/
 │   ├── api/             # Hono server exposing the tRPC router
 │   ├── db/              # Drizzle ORM schema for PostgreSQL
@@ -60,11 +59,7 @@ We will adopt the excellent structure from `karakeep` as our foundation, adaptin
 │   ├── trpc/            # tRPC routers, defining all API procedures
 │   │   └── routers/
 │   │       └── item.ts  # Example router for 'items'
-│   ├── workers/         # BullMQ background workers for ingestion
-│   └── ai/
-│       ├── processor/   # FastAPI service based on unstructured.io
-│       └── retriever/    # FastAPI service based on Haystack
-│
+│   └── shared/          # Shared utilities and types
 └── ...                  # turbo.json, pnpm-workspace.yaml, etc.
 ```
 
@@ -77,58 +72,6 @@ Here are some examples of what the key components would look like.
 #### 1. Database Schema (`packages/db/schema.ts`)
 
 This Drizzle schema is the heart of our application, defining the structure of our data in PostgreSQL.
-
-```typescript
-import {
-  pgTable,
-  uuid,
-  text,
-  jsonb,
-  timestamp,
-  index,
-  customType,
-} from "drizzle-orm/pg-core";
-
-// Custom type for pgvector
-const vector = customType<{ data: number[] }>({
-  dataType() {
-    return "vector(1536)"; // For OpenAI embeddings
-  },
-});
-
-// Custom type for ltree
-const ltree = customType<{ data: string }>({
-  dataType() {
-    return "ltree";
-  },
-});
-
-export const items = pgTable("items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  sourceUri: text("source_uri").notNull().unique(),
-  canonicalUri: text("canonical_uri"),
-  contentHash: text("content_hash").notNull().unique(),
-  path: ltree("path").notNull(),
-  title: text("title"),
-  displayContent: text("display_content"),
-  rawContent: jsonb("raw_content"),
-  metadata: jsonb("metadata"),
-  itemTimestamp: timestamp("item_timestamp", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-}, (table) => ({
-    pathIdx: index("path_idx").on(table.path).using("gist"),
-}));
-
-export const chunks = pgTable("chunks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  itemId: uuid("item_id").notNull().references(() => items.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  embedding: vector("embedding"),
-  metadata: jsonb("metadata"),
-}, (table) => ({
-    embeddingIdx: index("embedding_idx").on(table.embedding).using("ivfflat", { opclass: "vector_l2_ops" }),
-}));
-```
 
 #### 2. tRPC Router (`packages/trpc/routers/item.ts`)
 

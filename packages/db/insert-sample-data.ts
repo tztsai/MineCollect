@@ -1,6 +1,6 @@
 // Script to insert sample data into the database
-const { db } = require('@minecollect/db');
-const { sources, nodes } = require('@minecollect/db/schema');
+import { db } from './client';
+import { sources, nodes } from './schema';
 
 async function insertSampleData() {
   try {

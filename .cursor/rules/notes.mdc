@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+- use pnpm for depedency management
+- use turbo for monorepo management

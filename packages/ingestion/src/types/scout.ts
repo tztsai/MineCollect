@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+// Utility type to make properties with default values optional
+type ZodInferWithDefaults<T extends z.ZodType> = 
+  Partial<z.infer<T>> & 
+  Omit<z.infer<T>, keyof z.infer<T>>;
+
 export const ScoutConfigSchema = z.object({
   enabled: z.boolean().default(true),
   interval: z.number().default(3600), // seconds
@@ -11,7 +16,7 @@ export const ScoutConfigSchema = z.object({
   }).optional(),
 });
 
-export type ScoutConfig = z.infer<typeof ScoutConfigSchema>;
+export type ScoutConfig = ZodInferWithDefaults<typeof ScoutConfigSchema>;
 
 export const ScoutJobSchema = z.object({
   scoutName: z.string(),
@@ -21,11 +26,7 @@ export const ScoutJobSchema = z.object({
   delay: z.number().default(0),
 });
 
-// Create a custom type that makes properties with defaults optional
-export type ScoutJob = Omit<z.infer<typeof ScoutJobSchema>, 'priority' | 'delay'> & {
-  priority?: number;
-  delay?: number;
-};
+export type ScoutJob = ZodInferWithDefaults<typeof ScoutJobSchema>;
 
 // Scout result
 export const ScoutResultSchema = z.object({
@@ -36,12 +37,11 @@ export const ScoutResultSchema = z.object({
   timestamp: z.date().default(() => new Date()),
 });
 
-export type ScoutResult = z.infer<typeof ScoutResultSchema>;
+export type ScoutResult = ZodInferWithDefaults<typeof ScoutResultSchema>;
 
 // Base scout interface
 export interface Scout {
   name: string;
-
   config: ScoutConfig;
   
   // Initialize the scout (setup browser, auth, etc.)
@@ -82,13 +82,7 @@ export const YouTubeJobSchema = ScoutJobSchema.extend({
   includeComments: z.boolean().default(false),
 });
 
-// Create a custom type for YouTube job that makes properties with defaults optional
-export type YouTubeJob = Omit<z.infer<typeof YouTubeJobSchema>, 'priority' | 'delay' | 'includeTranscript' | 'includeComments'> & {
-  priority?: number;
-  delay?: number;
-  includeTranscript?: boolean;
-  includeComments?: boolean;
-};
+export type YouTubeJob = ZodInferWithDefaults<typeof YouTubeJobSchema>;
 
 // ChatGPT specific types
 export const ChatGPTConversationSchema = z.object({
@@ -124,9 +118,4 @@ export const ChatGPTJobSchema = ScoutJobSchema.extend({
   includeShared: z.boolean().default(false),
 });
 
-// Create a custom type for ChatGPT job that makes properties with defaults optional
-export type ChatGPTJob = Omit<z.infer<typeof ChatGPTJobSchema>, 'priority' | 'delay' | 'includeShared'> & {
-  priority?: number;
-  delay?: number;
-  includeShared?: boolean;
-}; 
+export type ChatGPTJob = ZodInferWithDefaults<typeof ChatGPTJobSchema>; 

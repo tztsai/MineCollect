@@ -361,8 +361,6 @@ if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv
   
   const testJob: ChatGPTJob = {
     scoutName: 'chatgpt',
-    priority: 0,
-    delay: 0,
     dateRange: {
       from: subDays(new Date(), 7),
       to: new Date(),

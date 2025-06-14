@@ -25,6 +25,10 @@
     "@vitest/ui": "^1.0.0"
   },
   "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
     "./schema": {
       "types": "./schema.ts",
       "default": "./schema.ts"

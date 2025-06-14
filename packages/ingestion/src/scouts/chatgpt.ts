@@ -1,7 +1,7 @@
 import { BaseScout } from './base.js';
 import { ScoutJob, ScoutResult, ChatGPTJob, ChatGPTConversation } from '../types/scout.js';
 import { format, subDays } from 'date-fns';
-import { db } from '@minecollect/db/client';
+import { db } from '@minecollect/db';
 import { sources, nodes } from '@minecollect/db/schema';
 import { createPath } from '../utils/path.js';
 

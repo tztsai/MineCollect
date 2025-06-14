@@ -1,13 +1,15 @@
 import { BaseScout } from './base.js';
 import { ScoutJob, ScoutResult, ChatGPTJob, ChatGPTConversation } from '../types/scout.js';
 import { format, subDays } from 'date-fns';
+import { db } from '@minecollect/db/client';
+import { sources, nodes } from '@minecollect/db/schema';
+import { createPath } from '../utils/path.js';
 
 export class ChatGPTScout extends BaseScout {
   private isLoggedIn = false;
 
   constructor() {
     super('chatgpt', {
-      name: 'chatgpt',
       enabled: true,
       interval: 3600, // 1 hour
       maxRetries: 3,
@@ -56,24 +58,31 @@ export class ChatGPTScout extends BaseScout {
       const importResults = [];
       for (const conversation of conversations) {
         try {
-          // Convert to format expected by import function
-          const threadData = this.convertToThreadFormat(conversation);
+          // Import conversation to database
+          const result = await this.importConversation(conversation);
           
-          // Here you would call an import function similar to importTwitterThread
-          // For now, we'll just log the data
-          this.logger.info('Would import conversation', { 
+          this.logger.info('Imported conversation', { 
             id: conversation.id, 
             title: conversation.title,
-            messageCount: conversation.messages.length 
+            messageCount: conversation.messages.length,
+            sourceId: result.sourceId
           });
           
-          importResults.push({ success: true, conversationId: conversation.id });
+          importResults.push({ 
+            success: true, 
+            conversationId: conversation.id,
+            sourceId: result.sourceId
+          });
         } catch (error) {
           this.logger.error('Failed to import conversation', { 
             id: conversation.id, 
             error: error instanceof Error ? error.message : String(error) 
           });
-          importResults.push({ success: false, conversationId: conversation.id, error });
+          importResults.push({ 
+            success: false, 
+            conversationId: conversation.id, 
+            error: error instanceof Error ? error.message : String(error)
+          });
         }
       }
 
@@ -264,6 +273,70 @@ export class ChatGPTScout extends BaseScout {
     }
   }
 
+  private async importConversation(conversation: ChatGPTConversation) {
+    // Check if conversation already exists in database
+    const existingSource = await db.query.sources.findFirst({
+      where: (sources, { eq }) => eq(sources.sourceUri, `https://chat.openai.com/c/${conversation.id}`),
+    });
+
+    if (existingSource) {
+      this.logger.info('Conversation already exists in database', { 
+        id: conversation.id,
+        sourceId: existingSource.id
+      });
+      return { sourceId: existingSource.id };
+    }
+
+    // Create source
+    const [source] = await db.insert(sources).values({
+      sourceUri: `https://chat.openai.com/c/${conversation.id}`,
+      metadata: {
+        title: conversation.title,
+        messageCount: conversation.messages.length,
+        model: conversation.metadata?.model || 'gpt-4',
+        extractedAt: conversation.metadata?.extractedAt,
+      },
+      timestamp: new Date(conversation.createTime * 1000),
+    }).returning();
+
+    // Create root node for conversation
+    const rootPath = createPath('Conversations', 'ChatGPT', `Chat_${conversation.id}`);
+    const [rootNode] = await db.insert(nodes).values({
+      sourceId: source.id,
+      path: rootPath,
+      title: conversation.title,
+      content: `ChatGPT conversation: ${conversation.title}`,
+      depth: 0,
+      sortOrder: 0,
+      metadata: {
+        type: 'chatgpt_conversation',
+        url: `https://chat.openai.com/c/${conversation.id}`,
+      },
+    }).returning();
+
+    // Create individual message nodes
+    for (let i = 0; i < conversation.messages.length; i++) {
+      const message = conversation.messages[i];
+      await db.insert(nodes).values({
+        sourceId: source.id,
+        parentId: rootNode.id,
+        path: createPath(rootPath, `Message_${String(i + 1).padStart(3, '0')}`),
+        title: `${message.author.role === 'user' ? 'User' : 'Assistant'} message ${i + 1}`,
+        content: message.content.parts.join('\n'),
+        depth: 1,
+        sortOrder: i,
+        metadata: {
+          type: 'chatgpt_message',
+          role: message.author.role,
+          messageId: message.id,
+          messageIndex: i,
+        },
+      });
+    }
+
+    return { sourceId: source.id };
+  }
+
   private convertToThreadFormat(conversation: ChatGPTConversation) {
     // Convert ChatGPT conversation to a format similar to Twitter thread
     return {
@@ -288,6 +361,8 @@ if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv
   
   const testJob: ChatGPTJob = {
     scoutName: 'chatgpt',
+    priority: 0,
+    delay: 0,
     dateRange: {
       from: subDays(new Date(), 7),
       to: new Date(),

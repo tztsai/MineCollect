@@ -4,14 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
-    "dev:db": "docker-compose up -d postgres redis meilisearch",
+    "db:start": "docker-compose up -d postgres redis meilisearch",
     "db:stop": "docker-compose down",
     "db:logs": "docker-compose logs -f postgres",
+    "db:test": "cd packages/db && pnpm run test",
     "db:generate": "cd packages/db && pnpm run db:generate",
     "db:migrate": "cd packages/db && pnpm run db:migrate",
     "db:studio": "cd packages/db && pnpm run db:studio",
@@ -21,7 +21,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.8.0",
+  "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac",
   "devDependencies": {
     "turbo": "^2.5.4"
   }

@@ -8,6 +8,7 @@ import {
     primaryKey,
     integer,
     customType,
+    boolean,
   } from "drizzle-orm/pg-core";
   import { relations } from "drizzle-orm";
   
@@ -18,18 +19,18 @@ import {
    * Assumes a vector of 1536 dimensions, standard for OpenAI embeddings.
    * The vector is stored as a string in the driver and parsed back into an array.
    */
-  const vector = customType<{ data: number[]; driverData: string }>({
-    dataType() {
-      return "vector(1536)";
-    },
-    toDriver(value: number[]): string {
-      return `[${value.join(",")}]`;
-    },
-    fromDriver(value: string): number[] {
-      // Assumes the format is '[1,2,3]'
-      return value.slice(1, -1).split(",").map(Number);
-    },
-  });
+  // const vector = customType<{ data: number[]; driverData: string }>({
+  //   dataType() {
+  //     return "vector(1536)";
+  //   },
+  //   toDriver(value: number[]): string {
+  //     return `[${value.join(",")}]`;
+  //   },
+  //   fromDriver(value: string): number[] {
+  //     // Assumes the format is '[1,2,3]'
+  //     return value.slice(1, -1).split(",").map(Number);
+  //   },
+  // });
   
   /**
    * Custom Drizzle type for `ltree` for hierarchical pathing.
@@ -47,37 +48,18 @@ import {
    * The central table for all ingested content. Each row represents a single,
    * discrete piece of knowledge, regardless of its source.
    */
-  export const assets = pgTable(
-    "assets",
+  export const sources = pgTable(
+    "sources",
     {
       id: uuid("id").primaryKey().defaultRandom(),
   
       // --- URI & Identification ---
       /**
-       * The unique, internal URI for the asset, following the MineCollect URI schema.
-       * e.g., 'chat://chatgpt/session/abc/turn-12', 'app://twitter/user/status/123'
+       * The unique for the source, following the MineCollect URI schema.
+       * e.g., 'https://www.youtube.com/watch?v=abc', 'app://twitter/user/status/123'
        * This is the primary key for identifying content across the system.
        */
       sourceUri: text("source_uri").notNull().unique(),
-  
-      /**
-       * The publicly accessible URL for the asset, if one exists.
-       * e.g., https://www.youtube.com/watch?v=...
-       */
-      webUrl: text("web_url"),
-  
-      /**
-       * A SHA256 hash of the normalized content to aid in deduplication.
-       * Ingestion workers should compute this before insertion.
-       */
-      contentHash: text("content_hash").notNull().unique(),
-  
-      // --- Organization & Metadata ---
-      /**
-       * Hierarchical path for organizing the asset, using ltree.
-       * e.g., 'Snapshots.Tweets.Tech.12345', 'Readings.Articles.AI.NavalOnWealth'
-       */
-      path: ltree("path").notNull(),
   
       /**
        * Any additional, source-specific metadata that doesn't fit in other columns.
@@ -90,23 +72,24 @@ import {
        * The original timestamp of the content creation (e.g., when a tweet was posted).
        */
       timestamp: timestamp("timestamp", { withTimezone: true }),
-
-      /**
-       * Reference to the root node of this asset's content tree.
-       * Each asset must have at least one node.
-       */
-      rootNodeId: uuid("root_node_id"),
+      
+      addedAt: timestamp("added_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
+        
+      updatedAt: timestamp("updated_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
     },
     (table) => ({
       // Indexes for common query patterns
       sourceUriIdx: index("source_uri_idx").on(table.sourceUri),
-      pathIdx: index("path_idx").on(table.path), // GiST index is recommended for ltree
       timestampIdx: index("timestamp_idx").on(table.timestamp),
     }),
   );
   
   /**
-   * Holds the individual nodes of content derived from an `asset`.
+   * Holds the individual nodes of content derived from a `source`.
    * Nodes are arranged in a tree structure with parent-child relationships.
    * This is the foundation for Retrieval-Augmented Generation (RAG).
    */
@@ -115,28 +98,48 @@ import {
     {
       id: uuid("id").primaryKey().defaultRandom(),
       
-      assetId: uuid("asset_id")
+      sourceId: uuid("source_id")
         .notNull()
-        .references(() => assets.id, { onDelete: "cascade" }),
-
+        .references(() => sources.id, { onDelete: "cascade" }),
+      
       /**
        * Reference to the parent node in the tree structure.
        * Null for root nodes.
        */
-      parentId: uuid("parent_id").references(() => nodes.id),
-  
-      title: text("title"),
-      content: text("content"),
+      parentId: uuid("parent_id").references(() => nodes.id, { onDelete: "cascade" }),
+
+      // --- Content Organization ---
+      /**
+       * Hierarchical path for organizing the node, using ltree.
+       * e.g., 'Snapshots.Tweets.Tech.12345', 'Readings.Articles.AI.NavalOnWealth'
+       */
+      path: ltree("path").notNull(),
+
+      /**
+       * The depth level in the tree (0 for root nodes).
+       * Computed field to optimize tree queries.
+       */
+      depth: integer("depth").notNull().default(0),
       
       /**
-       * The vector embedding for this node's content. Used for semantic search.
+       * Sequential order within siblings at the same level.
        */
-      embedding: vector("embedding"),
+      sortOrder: integer("sort_order").notNull().default(0),
+
+      title: text("title"),
+
+      content: text("content"),
       
       /**
        * Metadata specific to this node, e.g., { page: 3, paragraph: 2 }.
        */
       metadata: jsonb("metadata"),
+      
+      // --- Status ---
+      /**
+       * Whether this node is currently active or has been soft-deleted.
+       */
+      isActive: boolean("is_active").notNull().default(true),
       
       createdAt: timestamp("created_at", { withTimezone: true })
         .notNull()
@@ -147,10 +150,13 @@ import {
         .defaultNow(),
     },
     (table) => ({
-      assetIdx: index("node_asset_idx").on(table.assetId),
+      sourceIdx: index("node_source_idx").on(table.sourceId),
+      // Index for ltree operations (will need GiST in migration)
+      pathIdx: index("path_idx").on(table.path),
       parentIdx: index("node_parent_idx").on(table.parentId),
-      // IVFFlat index is a good starting point for vector search performance.
-      embeddingIdx: index("node_embedding_idx").on(table.embedding),
+      isActiveIdx: index("node_is_active_idx").on(table.isActive),
+      // Composite index for sibling ordering
+      siblingOrderIdx: index("sibling_order_idx").on(table.parentId, table.sortOrder),
     }),
   );
   
@@ -158,82 +164,121 @@ import {
    * A table to store hierarchical tags.
    * Tags are organized in a tree structure with parent-child relationships.
    */
-  export const tags = pgTable("tags", {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull().unique(),
-    parentId: uuid("parent_id").references(() => tags.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  });
-  
-  /**
-   * Junction table for the many-to-many relationship between assets and tags.
-   */
-  export const assetTags = pgTable(
-    "asset_tags",
+  export const tags = pgTable(
+    "tags", 
     {
-      assetId: uuid("asset_id")
-        .notNull()
-        .references(() => assets.id, { onDelete: "cascade" }),
-      tagId: uuid("tag_id")
-        .notNull()
-        .references(() => tags.id, { onDelete: "cascade" }),
+      id: uuid("id").primaryKey().defaultRandom(),
+
+      name: text("name").notNull(),
+      
+      /**
+       * Optional description of what this tag represents.
+       */
+      description: text("description"),
+      
+      /**
+       * Reference to parent tag for hierarchical organization.
+       */
+      parentId: uuid("parent_id").references(() => tags.id, { onDelete: "cascade" }),
+      
+      /**
+       * Color hex code for UI display.
+       */
+      color: text("color"),
+      
+      /**
+       * Whether this tag is currently active.
+       */
+      isActive: boolean("is_active").notNull().default(true),
+      
       createdAt: timestamp("created_at", { withTimezone: true })
         .notNull()
         .defaultNow(),
     },
     (table) => ({
-      pk: primaryKey({ columns: [table.assetId, table.tagId] }),
+      nameIdx: index("tag_name_idx").on(table.name),
+      parentIdx: index("tag_parent_idx").on(table.parentId),
+      isActiveIdx: index("tag_is_active_idx").on(table.isActive),
+    }),
+  );
+  
+  /**
+   * Junction table for the many-to-many relationship between nodes and tags.
+   * Allows more granular tagging at the node level.
+   */
+  export const nodeTags = pgTable(
+    "node_tags",
+    {
+      nodeId: uuid("node_id")
+        .notNull()
+        .references(() => nodes.id, { onDelete: "cascade" }),
+      tagId: uuid("tag_id")
+        .notNull()
+        .references(() => tags.id, { onDelete: "cascade" }),
+      
+      /**
+       * Optional confidence score for auto-generated tags.
+       */
+      confidence: integer("confidence"),
+      
+      /**
+       * Whether this tag was applied manually or automatically.
+       */
+      isAutoGenerated: boolean("is_auto_generated").notNull().default(false),
+      
+      createdAt: timestamp("created_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
+    },
+    (table) => ({
+      pk: primaryKey({ columns: [table.nodeId, table.tagId] }),
+      nodeIdx: index("node_tags_node_idx").on(table.nodeId),
+      tagIdx: index("node_tags_tag_idx").on(table.tagId),
+      autoGeneratedIdx: index("node_tags_auto_idx").on(table.isAutoGenerated),
     }),
   );
   
   // --- Relations ---
   
-  export const assetsRelations = relations(assets, ({ one, many }) => ({
-    rootNode: one(nodes, {
-      fields: [assets.rootNodeId],
-      references: [nodes.id],
-    }),
+  export const sourcesRelations = relations(sources, ({ many }) => ({
     nodes: many(nodes),
-    tags: many(assetTags),
   }));
   
   export const nodesRelations = relations(nodes, ({ one, many }) => ({
-    asset: one(assets, {
-      fields: [nodes.assetId],
-      references: [assets.id],
+    source: one(sources, {
+      fields: [nodes.sourceId],
+      references: [sources.id],
     }),
     parent: one(nodes, {
       fields: [nodes.parentId],
       references: [nodes.id],
+      relationName: "nodeHierarchy",
     }),
     children: many(nodes, {
-      relationName: "parent",
+      relationName: "nodeHierarchy",
     }),
+    tags: many(nodeTags),
   }));
   
   export const tagsRelations = relations(tags, ({ one, many }) => ({
     parent: one(tags, {
       fields: [tags.parentId],
       references: [tags.id],
+      relationName: "tagHierarchy",
     }),
     children: many(tags, {
-      relationName: "parent",
+      relationName: "tagHierarchy",
     }),
-    assets: many(assetTags),
+    nodes: many(nodeTags),
   }));
   
-  export const assetTagsRelations = relations(assetTags, ({ one }) => ({
-    asset: one(assets, {
-      fields: [assetTags.assetId],
-      references: [assets.id],
+  export const nodeTagsRelations = relations(nodeTags, ({ one }) => ({
+    node: one(nodes, {
+      fields: [nodeTags.nodeId],
+      references: [nodes.id],
     }),
     tag: one(tags, {
-      fields: [assetTags.tagId],
+      fields: [nodeTags.tagId],
       references: [tags.id],
     }),
   }));

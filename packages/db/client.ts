@@ -1,14 +1,20 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { Config } from 'drizzle-kit';
 import * as schema from './schema';
+import drizzleConfig from './drizzle.config';
+
+// Extract database credentials from the config with proper typing
+const { dbCredentials } = drizzleConfig as Config;
+const { user, password, host, port, database, ssl } = dbCredentials;
 
 // Create the connection string from environment variables
-const connectionString = process.env.DATABASE_URL || 
-  `postgresql://${process.env.DB_USER || 'minecollect'}:${process.env.DB_PASSWORD || 'minecollect_dev'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'minecollect'}`;
+const connectionString = 
+  `postgresql://${user}:${password}@${host}:${port}/${database}`;
 
 // Create the postgres client
 export const sql = postgres(connectionString, {
-  ssl: process.env.DB_SSL === 'true' ? 'require' : false,
+  ssl: ssl && 'require',
   max: 20, // Maximum number of connections in the pool
   idle_timeout: 20,
   connect_timeout: 10,

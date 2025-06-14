@@ -1,7 +1,3 @@
-Excellent. For MineCollect, your goal is comprehensive personal data aggregation. We want to enumerate every possible personal knowledge, media, and attention sink, covering both intentional collections (bookmarks, stars, saved posts) and incidental traces (conversations, screenshots, listening history). Below is a systematic and exhaustive list, prioritized by relevance and frequency of user engagement.
-
-⸻
-
 🧠 1. Conversational Interfaces (Ideas & Thinking)
 
 Captured thoughts, questions, insights.

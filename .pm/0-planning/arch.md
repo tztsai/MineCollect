@@ -15,11 +15,11 @@ graph TD
         subgraph "TypeScript Backend (Modular Monolith)"
             direction TB
             API[Hono API w/ tRPC];
-            Workers[Background Workers (BullMQ + Redis)];
+            Scouts[Background Workers (BullMQ + Redis)];
             DB[(PostgreSQL w/ pgvector & ltree)];
 
             API --> DB;
-            Workers --> DB;
+            Scouts --> DB;
             C1 --> API;
             C2 --> API;
         end
@@ -31,8 +31,8 @@ graph TD
             S3[RAG (Haystack)];
         end
 
-        Workers -- REST Call --> S1;
-        Workers -- REST Call --> S2;
+        Scouts -- REST Call --> S1;
+        Scouts -- REST Call --> S2;
         API -- REST Call --> S3;
     end
 ```
@@ -77,59 +77,9 @@ This Drizzle schema is the heart of our application, defining the structure of o
 
 This defines a type-safe API endpoint for fetching items, which the frontend can call as if it were a local function.
 
-```typescript
-import { z } from "zod";
-import { db } from "@minecollect/db";
-import { items } from "@minecollect/db/schema";
-import { createTRPCRouter, publicProcedure } from "../trpc";
-import { like } from "drizzle-orm";
-
-export const itemRouter = createTRPCRouter({
-  search: publicProcedure
-    .input(z.object({ query: z.string() }))
-    .query(async ({ input }) => {
-      // Basic full-text search example
-      return await db.query.assets.findMany({
-        where: like(items.content, `%${input.query}%`),
-        limit: 50,
-      });
-    }),
-
-  // More procedures here: create, getById, etc.
-});
-```
-
 #### 3. Ingestion Worker (`apps/workers/connectors/twitter.ts`)
 
 A background job processor that fetches data from a source, queues it for processing, and handles potential failures.
-
-```typescript
-import { Worker } from "bullmq";
-import { playwright } from "playwright";
-import { db } from "@minecollect/db";
-import { items } from "@minecollect/db/schema";
-// Assume redis connection is configured elsewhere
-
-const twitterWorker = new Worker("ingestion-queue", async (job) => {
-  if (job.name === "fetch-twitter-bookmarks") {
-    const { userId, sessionCookies } = job.data;
-    
-    // 1. Use Playwright to scrape bookmarks (as per your spec)
-    const newBookmarks = await scrapeBookmarks(sessionCookies);
-
-    // 2. In a transaction, add them to the database
-    await db.transaction(async (tx) => {
-      for (const bookmark of newBookmarks) {
-        // Here you'd compute the hash, create the URI, etc.
-        await tx.insert(items).values({ ... }).onConflictDoNothing();
-      }
-    });
-
-    // 3. Queue follow-up jobs for embedding
-    // await embeddingQueue.add("embed-new-items", { ... });
-  }
-}, { connection: redis });
-```
 
 ---
 

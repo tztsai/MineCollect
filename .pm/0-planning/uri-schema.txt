@@ -1,6 +1,7 @@
 🛰️ Universal URI Scheme for MineCollect
 
 Each source of data—whether web, app, or local—should resolve to a consistent and parseable URI format. The scheme should support the following goals:
+	•	It's an extension of canonical URL, so all sources accessible by browser should have a URI the same as its HTTPS URL
 	•	Uniformity across platforms and types
 	•	Extensibility for custom or exotic sources
 	•	Granularity (e.g., down to highlight or timestamp)

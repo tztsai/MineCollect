@@ -8,6 +8,7 @@
 - **Search:** Meilisearch
 - **Job Queue:** BullMQ
 - **Scraping:** Playwright, crawlee, yt-dlp
+- **Web Framework:** Next.js
 
 ---
 
